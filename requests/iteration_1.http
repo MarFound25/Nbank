@@ -1,0 +1,486 @@
+## Get auth token
+## Admin Token: Authorization:
+POST http://localhost:4111/api/v1/auth/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "admin"
+}
+
+// ТЕСТЫ НА ВАЛИДАЦИЮ USERNAME И PASSWORD ДЛЯ АДМИНА
+
+### Positive test: Admin can create new user with correct data
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "kate1920",
+  "password": "kate1998",
+  "role": "USER"
+}
+
+### Negative test: Admin can`t create new user with blank username
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "",
+  "password": "{{$random.uuid}}",
+  "role": "USER"
+}
+
+### Negative test: Admin can`t create new user with username 2 characters
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "ab",
+  "password": "{{$random.uuid}}",
+  "role": "USER"
+}
+
+### Negative test: Admin can`t create new user with username 16 characters
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "abcdefghijklmnop",
+  "password": "{{$random.uuid}}",
+  "role": "USER"
+}
+
+### Negative test: Admin can`t create new user with username contains $%^&*()@# characters
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "$%^&*()@#",
+  "password": "{{$random.uuid}}",
+  "role": "USER"
+}
+
+## Negative test: Admin can`t create password with blank password
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "{{$random.uuid}}",
+  "password": "",
+  "role": "USER"
+}
+
+## Negative test: Admin can`t create password less than 8 characters
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "{{$random.uuid}}",
+  "password": "1212FD",
+  "role": "USER"
+}
+
+## Negative test: Admin can`t create password without digits
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "{{$random.uuid}}",
+  "password": "orioNIpinion",
+  "role": "USER"
+}
+
+## Negative test: Admin can`t create password without one lower case character
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "{{$random.uuid}}",
+  "password": "ORIONOPINIO",
+  "role": "USER"
+}
+
+## Negative test: Admin can`t create password without one upper case character
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "{{$random.uuid}}",
+  "password": "orionopinion",
+  "role": "USER"
+}
+
+## Negative test: Admin can`t create password without special character
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "kate26",
+  "password": "ORIONOPINIo8",
+  "role": "USER"
+}
+
+## Negative test: Admin can`t create password with spaces
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "kate27",
+  "password": "ORIONOPINIo8 ",
+  "role": "USER"
+}
+
+## Negative test: Admin can`t create new user with role not from list "ADMIN", "USER"
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "{{$random.uuid}}",
+  "password": "{{$random.uuid}}",
+  "role": "EDITOR"
+}
+
+### Negative test: Create user that already exist by admin
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "kate1998",
+  "password": "kate1998",
+  "role": "USER"
+}
+
+// ТЕСТЫ НА ВАЛИДАЦИЮ ПОЛЯ name
+
+### Positive: Create user with valid name (testuser1 - для будущих тестов)
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "testuser1",
+  "password": "Test1234!",
+  "name": "John Doe",
+  "role": "USER"
+}
+
+### Negative: Create user with name containing only one word
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "testuser2",
+  "password": "Test1234!",
+  "name": "John",
+  "role": "USER"
+}
+
+### Negative: Create user with name containing three words
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "testuser3",
+  "password": "Test1234!",
+  "name": "John Peter Smith",
+  "role": "USER"
+}
+
+### Negative: Create user with name containing digits
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "testuser4",
+  "password": "Test1234!",
+  "name": "John 123",
+  "role": "USER"
+}
+
+### Negative: Create user with name containing special characters
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "testuser5",
+  "password": "Test1234!",
+  "name": "John@ Doe",
+  "role": "USER"
+}
+
+### Negative: Create user with empty name
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "testuser6",
+  "password": "Test1234!",
+  "name": "",
+  "role": "USER"
+}
+
+// ТЕСТЫ НА ДОПУСТИМЫЕ СИМВОЛЫ В USERNAME
+
+### Positive: Username can contain dots
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "john.doe",
+  "password": "Test1234!",
+  "name": "John Doe",
+  "role": "USER"
+}
+
+### Positive: Username can contain hyphens
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "john-doe",
+  "password": "Test1234!",
+  "name": "John Doe",
+  "role": "USER"
+}
+
+### Positive: Username can contain underscores
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "john_doe",
+  "password": "Test1234!",
+  "name": "John Doe",
+  "role": "USER"
+}
+
+### Positive: Username can contain numbers
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "john123",
+  "password": "Test1234!",
+  "name": "John Doe",
+  "role": "USER"
+}
+
+### Negative: Username cannot contain spaces
+POST http://localhost:4111/api/v1/admin/users
+Content-Type: application/json
+Basic YWRtaW46YWRtaW4=
+
+{
+  "username": "john doe",
+  "password": "Test1234!",
+  "name": "John Doe",
+  "role": "USER"
+}
+
+
+// ТЕСТЫ ДЛЯ ПОЛЬЗОВАТЕЛЯ
+
+
+### Логин пользователя testuser1 и получение токена
+POST http://localhost:4111/api/v1/auth/login
+Content-Type: application/json
+
+{
+    "username": "testuser1",
+    "password": "Test1234!"
+}
+
+> {%
+    client.global.set("auth_token", response.body.token);
+%}
+
+### Positive: User views their accounts
+GET http://localhost:4111/api/v1/accounts
+Authorization: Bearer {{auth_token}}
+
+### Positive: User creates new account
+POST http://localhost:4111/api/v1/accounts
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+
+// ТЕСТЫ НА ДЕПОЗИТЫ
+
+### Positive: User makes a deposit to own account
+POST http://localhost:4111/api/v1/accounts/acc-123/deposit
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "amount": 1000.00
+}
+
+### Negative: User tries to deposit negative amount
+POST http://localhost:4111/api/v1/accounts/acc-123/deposit
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "amount": -100.00
+}
+
+### Negative: User tries to deposit more than max limit (5000)
+POST http://localhost:4111/api/v1/accounts/acc-123/deposit
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "amount": 5001.00
+}
+
+### Negative: User tries to deposit to someone else's account
+POST http://localhost:4111/api/v1/accounts/someone-elses-acc/deposit
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "amount": 100.00
+}
+
+### [NEW] Negative: User tries to deposit to non-existent account
+POST http://localhost:4111/api/v1/accounts/non-existent-acc/deposit
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "amount": 100.00
+}
+
+// ТЕСТЫ НА ПЕРЕВОДЫ
+
+### Positive: Transfer between user's own accounts
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "acc-456",
+    "amount": 500.00
+}
+
+### Negative: Transfer amount exceeding balance
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "acc-456",
+    "amount": 999999.00
+}
+
+### Negative: Transfer to non-existent account
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "non-existent-acc",
+    "amount": 100.00
+}
+
+### Negative: Transfer with negative amount
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "acc-456",
+    "amount": -50.00
+}
+
+### Negative: Transfer with amount zero
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "acc-456",
+    "amount": 0.00
+}
+
+### Negative: Transfer amount exceeding max limit (10000)
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "acc-456",
+    "amount": 10001.00
+}
+
+### Negative: Transfer from someone else's account
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "someone-elses-acc",
+    "toAccountId": "acc-456",
+    "amount": 100.00
+}
+
+// ТЕСТЫ НА ТРАНЗАКЦИИ
+
+### [NEW] Positive: User views transactions of their account
+GET http://localhost:4111/api/v1/accounts/acc-123/transactions
+Authorization: Bearer {{auth_token}}
+
+### [NEW] Negative: User tries to view transactions of someone else's account
+GET http://localhost:4111/api/v1/accounts/someone-elses-acc/transactions
+Authorization: Bearer {{auth_token}}
+
+// ТЕСТЫ НА ИЗМЕНЕНИЕ ПРОФИЛЯ
+
+### Positive: User changes their name
+PATCH http://localhost:4111/api/v1/users/me
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "name": "Sara Connor"
+}
+
+
+// АДМИНСКИЕ ТЕСТЫ
+
+### Negative: Access admin endpoint with user credentials
+GET http://localhost:4111/api/v1/admin/users
+Authorization: Bearer {{auth_token}}
+
+### Positive: Admin can get all users
+GET http://localhost:4111/api/v1/admin/users
+Authorization: Basic YWRtaW46YWRtaW4=
