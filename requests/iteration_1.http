@@ -365,13 +365,49 @@ Content-Type: application/json
     "amount": 100.00
 }
 
-### [NEW] Negative: User tries to deposit to non-existent account
+### Negative: User tries to deposit to non-existent account
 POST http://localhost:4111/api/v1/accounts/non-existent-acc/deposit
 Authorization: Bearer {{auth_token}}
 Content-Type: application/json
 
 {
     "amount": 100.00
+}
+
+### Positive Boundary: User deposits exactly max limit (5000.00)
+POST http://localhost:4111/api/v1/accounts/acc-123/deposit
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "amount": 5000.00
+}
+
+### Positive Boundary: User deposits minimum positive amount (0.01)
+POST http://localhost:4111/api/v1/accounts/acc-123/deposit
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "amount": 0.01
+}
+
+### Negative Boundary: User deposits amount just above max limit (5000.01)
+POST http://localhost:4111/api/v1/accounts/acc-123/deposit
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "amount": 5000.01
+}
+
+### Positive Boundary: User deposits amount just below max limit (4999.99)
+POST http://localhost:4111/api/v1/accounts/acc-123/deposit
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "amount": 4999.99
 }
 
 // ТЕСТЫ НА ПЕРЕВОДЫ
@@ -453,13 +489,57 @@ Content-Type: application/json
     "amount": 100.00
 }
 
+### Positive Boundary: Transfer exactly max limit (10000.00)
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "acc-456",
+    "amount": 10000.00
+}
+
+### Positive Boundary: Transfer minimum positive amount (0.01)
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "acc-456",
+    "amount": 0.01
+}
+
+### Negative Boundary: Transfer amount just above max limit (10000.01)
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "acc-456",
+    "amount": 10000.01
+}
+
+### Positive Boundary: Transfer amount just below max limit (9999.99)
+POST http://localhost:4111/api/v1/transfers
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+    "fromAccountId": "acc-123",
+    "toAccountId": "acc-456",
+    "amount": 9999.99
+}
+
 // ТЕСТЫ НА ТРАНЗАКЦИИ
 
-### [NEW] Positive: User views transactions of their account
+### Positive: User views transactions of their account
 GET http://localhost:4111/api/v1/accounts/acc-123/transactions
 Authorization: Bearer {{auth_token}}
 
-### [NEW] Negative: User tries to view transactions of someone else's account
+### Negative: User tries to view transactions of someone else's account
 GET http://localhost:4111/api/v1/accounts/someone-elses-acc/transactions
 Authorization: Bearer {{auth_token}}
 
