@@ -20,10 +20,13 @@ public class CreateAccountTest {
 
     @BeforeAll
     public static void setupRestAssured() {
+        RestAssured.baseURI = "http://localhost:4111";
+
         RestAssured.filters(
                 List.of(new RequestLoggingFilter(),
                         new ResponseLoggingFilter()));
     }
+
 
     private String createUserAndGetAuth() {
         String username = "User" + random.nextInt(1000);
@@ -39,7 +42,7 @@ public class CreateAccountTest {
                         "role": "USER"
                         }
                         """, username))
-                .post("http://localhost:4111/api/v1/admin/users")
+                .post("/api/v1/admin/users")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_CREATED);
@@ -53,7 +56,7 @@ public class CreateAccountTest {
                         "password": "JohnDoe01#"
                         }
                         """, username))
-                .post("http://localhost:4111/api/v1/auth/login")
+                .post("/api/v1/auth/login")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_OK)
@@ -61,19 +64,19 @@ public class CreateAccountTest {
                 .header("Authorization");
     }
 
-
     private Integer createAccount(String authHeader) {
         return given()
                 .header("Authorization", authHeader)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .post("http://localhost:4111/api/v1/accounts")
+                .post("/api/v1/accounts")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_CREATED)
                 .extract()
                 .path("id");
     }
+
 
     @Test
     public void userCanCreateAccountTest() {
@@ -83,7 +86,7 @@ public class CreateAccountTest {
                 .header("Authorization", userAuthHeader)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .post("http://localhost:4111/api/v1/accounts")
+                .post("/api/v1/accounts")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_CREATED)
@@ -99,7 +102,7 @@ public class CreateAccountTest {
                 .header("Authorization", userAuthHeader)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .post("http://localhost:4111/api/v1/accounts")
+                .post("/api/v1/accounts")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_CREATED)
@@ -110,19 +113,18 @@ public class CreateAccountTest {
                 .header("Authorization", userAuthHeader)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .post("http://localhost:4111/api/v1/accounts")
+                .post("/api/v1/accounts")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_CREATED)
                 .extract()
                 .path("id");
 
-
         given()
                 .header("Authorization", userAuthHeader)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .get("http://localhost:4111/api/v1/customer/accounts")
+                .get("/api/v1/customer/accounts")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_OK)
@@ -145,11 +147,10 @@ public class CreateAccountTest {
                     "role": "USER"
                     }
                     """, username))
-                .post("http://localhost:4111/api/v1/admin/users")
+                .post("/api/v1/admin/users")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_CREATED);
-
 
         String userAuthHeader = given()
                 .contentType(ContentType.JSON)
@@ -160,25 +161,23 @@ public class CreateAccountTest {
                     "password": "JohnDoe01#"
                     }
                     """, username))
-                .post("http://localhost:4111/api/v1/auth/login")
+                .post("/api/v1/auth/login")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_OK)
                 .extract()
                 .header("Authorization");
 
-
         Integer accountId = given()
                 .header("Authorization", userAuthHeader)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .post("http://localhost:4111/api/v1/accounts")
+                .post("/api/v1/accounts")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_CREATED)
                 .extract()
                 .path("id");
-
 
         given()
                 .header("Authorization", userAuthHeader)
@@ -190,7 +189,7 @@ public class CreateAccountTest {
                     "balance": 1000.00
                     }
                     """, accountId))
-                .post("http://localhost:4111/api/v1/accounts/deposit")
+                .post("/api/v1/accounts/deposit")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_OK);
@@ -199,7 +198,7 @@ public class CreateAccountTest {
                 .header("Authorization", userAuthHeader)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .get("http://localhost:4111/api/v1/accounts/" + accountId + "/transactions")
+                .get("/api/v1/accounts/" + accountId + "/transactions")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_OK)
@@ -222,7 +221,7 @@ public class CreateAccountTest {
                     "role": "USER"
                     }
                     """, user1Username))
-                .post("http://localhost:4111/api/v1/admin/users")
+                .post("/api/v1/admin/users")
                 .then()
                 .statusCode(HttpStatus.SC_CREATED);
 
@@ -235,7 +234,7 @@ public class CreateAccountTest {
                     "password": "JohnDoe01#"
                     }
                     """, user1Username))
-                .post("http://localhost:4111/api/v1/auth/login")
+                .post("/api/v1/auth/login")
                 .then()
                 .statusCode(HttpStatus.SC_OK)
                 .extract()
@@ -245,7 +244,7 @@ public class CreateAccountTest {
                 .header("Authorization", user1Auth)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .post("http://localhost:4111/api/v1/accounts")
+                .post("/api/v1/accounts")
                 .then()
                 .statusCode(HttpStatus.SC_CREATED)
                 .extract()
@@ -264,7 +263,7 @@ public class CreateAccountTest {
                     "role": "USER"
                     }
                     """, user2Username))
-                .post("http://localhost:4111/api/v1/admin/users")
+                .post("/api/v1/admin/users")
                 .then()
                 .statusCode(HttpStatus.SC_CREATED);
 
@@ -277,7 +276,7 @@ public class CreateAccountTest {
                     "password": "JohnDoe01#"
                     }
                     """, user2Username))
-                .post("http://localhost:4111/api/v1/auth/login")
+                .post("/api/v1/auth/login")
                 .then()
                 .statusCode(HttpStatus.SC_OK)
                 .extract()
@@ -293,16 +292,15 @@ public class CreateAccountTest {
                     "balance": 500.00
                     }
                     """, user1AccountId))
-                .post("http://localhost:4111/api/v1/accounts/deposit")
+                .post("/api/v1/accounts/deposit")
                 .then()
                 .statusCode(HttpStatus.SC_OK);
-
 
         given()
                 .header("Authorization", user2Auth)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .get("http://localhost:4111/api/v1/accounts/" + user1AccountId + "/transactions")
+                .get("/api/v1/accounts/" + user1AccountId + "/transactions")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_FORBIDDEN);
@@ -316,7 +314,7 @@ public class CreateAccountTest {
                 .header("Authorization", userAuth)
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .get("http://localhost:4111/api/v1/accounts/999999/transactions")
+                .get("/api/v1/accounts/999999/transactions")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_FORBIDDEN);
@@ -327,7 +325,7 @@ public class CreateAccountTest {
         given()
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .get("http://localhost:4111/api/v1/accounts/1/transactions")
+                .get("/api/v1/accounts/1/transactions")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_UNAUTHORIZED);
@@ -339,7 +337,7 @@ public class CreateAccountTest {
                 .header("Authorization", "Bearer invalid.token.here")
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .get("http://localhost:4111/api/v1/accounts/1/transactions")
+                .get("/api/v1/accounts/1/transactions")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_UNAUTHORIZED);
@@ -351,7 +349,7 @@ public class CreateAccountTest {
                 .header("Authorization", "Basic invalid")
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .get("http://localhost:4111/api/v1/accounts/1/transactions")
+                .get("/api/v1/accounts/1/transactions")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_UNAUTHORIZED);
@@ -363,9 +361,44 @@ public class CreateAccountTest {
                 .header("Authorization", "")
                 .contentType(ContentType.JSON)
                 .accept(ContentType.JSON)
-                .get("http://localhost:4111/api/v1/accounts/1/transactions")
+                .get("/api/v1/accounts/1/transactions")
                 .then()
                 .assertThat()
                 .statusCode(HttpStatus.SC_UNAUTHORIZED);
+    }
+
+    @Test
+    public void userCanViewOwnAccountsTest() {
+        String userAuth = createUserAndGetAuth();
+
+        Integer account1 = createAccount(userAuth);
+        Integer account2 = createAccount(userAuth);
+
+        given()
+                .header("Authorization", userAuth)
+                .get("/api/v1/customer/accounts")
+                .then()
+                .assertThat()
+                .statusCode(HttpStatus.SC_OK)
+                .body("find { it.id == " + account1 + " }", Matchers.notNullValue())
+                .body("find { it.id == " + account2 + " }", Matchers.notNullValue())
+                .body("size()", Matchers.is(2));
+    }
+
+    @Test
+    public void userCannotViewAnotherUsersAccountsTest() {
+        String user1Auth = createUserAndGetAuth();
+        Integer user1Account = createAccount(user1Auth);
+
+        String user2Auth = createUserAndGetAuth();
+
+        given()
+                .header("Authorization", user2Auth)
+                .get("/api/v1/customer/accounts")
+                .then()
+                .assertThat()
+                .statusCode(HttpStatus.SC_OK)
+                .body("find { it.id == " + user1Account + " }", Matchers.nullValue())
+                .body("size()", Matchers.is(0));
     }
 }
