@@ -1,404 +1,352 @@
 package iteration1;
 
-import io.restassured.RestAssured;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
-import io.restassured.http.ContentType;
-import org.apache.http.HttpStatus;
-import org.hamcrest.Matchers;
-import org.junit.jupiter.api.BeforeAll;
+import generators.RandomData;
+import models.CreateUserRequest;
+import models.LoginUserRequest;
+import models.UserRole;
 import org.junit.jupiter.api.Test;
+import requests.*;
+import specs.RequestSpecs;
+import specs.ResponseSpecs;
 
-import java.util.List;
-import java.util.Random;
+import static org.hamcrest.Matchers.*;
 
-import static io.restassured.RestAssured.given;
+public class CreateAccountTest extends BaseTest {
 
-public class CreateAccountTest {
-
-    private static final Random random = new Random();
-
-    @BeforeAll
-    public static void setupRestAssured() {
-        RestAssured.baseURI = "http://localhost:4111";
-
-        RestAssured.filters(
-                List.of(new RequestLoggingFilter(),
-                        new ResponseLoggingFilter()));
-    }
-
-
-    private String createUserAndGetAuth() {
-        String username = "User" + random.nextInt(1000);
-
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=")
-                .body(String.format("""
-                        {
-                        "username": "%s",
-                        "password": "JohnDoe01#",
-                        "role": "USER"
-                        }
-                        """, username))
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED);
-
-        return given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                        {
-                        "username": "%s",
-                        "password": "JohnDoe01#"
-                        }
-                        """, username))
-                .post("/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .header("Authorization");
-    }
-
-    private Integer createAccount(String authHeader) {
-        return given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .post("/api/v1/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
-                .extract()
-                .path("id");
+    private LoginUserRequest toLoginRequest(CreateUserRequest createRequest) {
+        return LoginUserRequest.builder()
+                .username(createRequest.getUsername())
+                .password(createRequest.getPassword())
+                .build();
     }
 
 
     @Test
     public void userCanCreateAccountTest() {
-        String userAuthHeader = createUserAndGetAuth();
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        given()
-                .header("Authorization", userAuthHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .post("/api/v1/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
-                .body("id", Matchers.notNullValue())
-                .body("balance", Matchers.is(0.0f));
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
+
+        LoginUserRequest loginRequest = toLoginRequest(createRequest);
+
+        String authToken = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest);
+
+        new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .body("id", notNullValue())
+                .body("balance", is(0.0f));
     }
 
     @Test
     public void userCanCreateMultipleAccountsTest() {
-        String userAuthHeader = createUserAndGetAuth();
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        Integer account1 = given()
-                .header("Authorization", userAuthHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .post("/api/v1/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
+
+        LoginUserRequest loginRequest = toLoginRequest(createRequest);
+
+        String authToken = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest);
+
+        Integer account1 = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
                 .extract()
-                .path("id");
+                .jsonPath()
+                .getInt("id");
 
-        Integer account2 = given()
-                .header("Authorization", userAuthHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .post("/api/v1/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
+        Integer account2 = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
                 .extract()
-                .path("id");
+                .jsonPath()
+                .getInt("id");
 
-        given()
-                .header("Authorization", userAuthHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .get("/api/v1/customer/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .body("id", Matchers.hasItems(account1, account2))
-                .body("size()", Matchers.is(2));
-    }
-
-    @Test
-    public void userCanGetAccountTransactionsTest() {
-        String username = "John" + random.nextInt(1000);
-
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=")
-                .body(String.format("""
-                    {
-                    "username": "%s",
-                    "password": "JohnDoe01#",
-                    "role": "USER"
-                    }
-                    """, username))
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED);
-
-        String userAuthHeader = given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                    {
-                    "username": "%s",
-                    "password": "JohnDoe01#"
-                    }
-                    """, username))
-                .post("/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .header("Authorization");
-
-        Integer accountId = given()
-                .header("Authorization", userAuthHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .post("/api/v1/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
-                .extract()
-                .path("id");
-
-        given()
-                .header("Authorization", userAuthHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                    {
-                    "id": %d,
-                    "balance": 1000.00
-                    }
-                    """, accountId))
-                .post("/api/v1/accounts/deposit")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK);
-
-        given()
-                .header("Authorization", userAuthHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .get("/api/v1/accounts/" + accountId + "/transactions")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .body("$", Matchers.not(Matchers.nullValue()))
-                .body("size()", Matchers.greaterThanOrEqualTo(1));
-    }
-
-    @Test
-    public void userCannotGetAnotherUsersAccountTransactionsTest() {
-        String user1Username = "User1_" + random.nextInt(1000);
-
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=")
-                .body(String.format("""
-                    {
-                    "username": "%s",
-                    "password": "JohnDoe01#",
-                    "role": "USER"
-                    }
-                    """, user1Username))
-                .post("/api/v1/admin/users")
-                .then()
-                .statusCode(HttpStatus.SC_CREATED);
-
-        String user1Auth = given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                    {
-                    "username": "%s",
-                    "password": "JohnDoe01#"
-                    }
-                    """, user1Username))
-                .post("/api/v1/auth/login")
-                .then()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .header("Authorization");
-
-        Integer user1AccountId = given()
-                .header("Authorization", user1Auth)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .post("/api/v1/accounts")
-                .then()
-                .statusCode(HttpStatus.SC_CREATED)
-                .extract()
-                .path("id");
-
-        String user2Username = "User2_" + random.nextInt(1000);
-
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=")
-                .body(String.format("""
-                    {
-                    "username": "%s",
-                    "password": "JohnDoe01#",
-                    "role": "USER"
-                    }
-                    """, user2Username))
-                .post("/api/v1/admin/users")
-                .then()
-                .statusCode(HttpStatus.SC_CREATED);
-
-        String user2Auth = given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                    {
-                    "username": "%s",
-                    "password": "JohnDoe01#"
-                    }
-                    """, user2Username))
-                .post("/api/v1/auth/login")
-                .then()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .header("Authorization");
-
-        given()
-                .header("Authorization", user1Auth)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                    {
-                    "id": %d,
-                    "balance": 500.00
-                    }
-                    """, user1AccountId))
-                .post("/api/v1/accounts/deposit")
-                .then()
-                .statusCode(HttpStatus.SC_OK);
-
-        given()
-                .header("Authorization", user2Auth)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .get("/api/v1/accounts/" + user1AccountId + "/transactions")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_FORBIDDEN);
-    }
-
-    @Test
-    public void userCannotGetTransactionsForNonexistentAccountTest() {
-        String userAuth = createUserAndGetAuth();
-
-        given()
-                .header("Authorization", userAuth)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .get("/api/v1/accounts/999999/transactions")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_FORBIDDEN);
-    }
-
-    @Test
-    public void userCannotGetTransactionsWithoutAuthTest() {
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .get("/api/v1/accounts/1/transactions")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_UNAUTHORIZED);
-    }
-
-    @Test
-    public void userCannotGetTransactionsWithInvalidTokenTest() {
-        given()
-                .header("Authorization", "Bearer invalid.token.here")
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .get("/api/v1/accounts/1/transactions")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_UNAUTHORIZED);
-    }
-
-    @Test
-    public void userCannotGetTransactionsWithInvalidBasicAuthTest() {
-        given()
-                .header("Authorization", "Basic invalid")
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .get("/api/v1/accounts/1/transactions")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_UNAUTHORIZED);
-    }
-
-    @Test
-    public void userCannotGetTransactionsWithEmptyTokenTest() {
-        given()
-                .header("Authorization", "")
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .get("/api/v1/accounts/1/transactions")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_UNAUTHORIZED);
+        new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .get()
+                .body("id", hasItems(account1, account2))
+                .body("size()", is(2));
     }
 
     @Test
     public void userCanViewOwnAccountsTest() {
-        String userAuth = createUserAndGetAuth();
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        Integer account1 = createAccount(userAuth);
-        Integer account2 = createAccount(userAuth);
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
 
-        given()
-                .header("Authorization", userAuth)
-                .get("/api/v1/customer/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .body("find { it.id == " + account1 + " }", Matchers.notNullValue())
-                .body("find { it.id == " + account2 + " }", Matchers.notNullValue())
-                .body("size()", Matchers.is(2));
+        LoginUserRequest loginRequest = toLoginRequest(createRequest);
+
+        String authToken = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest);
+
+        Integer account1 = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
+
+        Integer account2 = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
+
+        new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .get()
+                .body("find { it.id == " + account1 + " }", notNullValue())
+                .body("find { it.id == " + account2 + " }", notNullValue())
+                .body("size()", is(2));
     }
 
     @Test
     public void userCannotViewAnotherUsersAccountsTest() {
-        String user1Auth = createUserAndGetAuth();
-        Integer user1Account = createAccount(user1Auth);
+        CreateUserRequest user1Request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        String user2Auth = createUserAndGetAuth();
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(user1Request);
 
-        given()
-                .header("Authorization", user2Auth)
-                .get("/api/v1/customer/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .body("find { it.id == " + user1Account + " }", Matchers.nullValue())
-                .body("size()", Matchers.is(0));
+        LoginUserRequest loginRequest1 = toLoginRequest(user1Request);
+
+        String authToken1 = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest1);
+
+        Integer user1Account = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken1),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
+
+        CreateUserRequest user2Request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
+
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(user2Request);
+
+        LoginUserRequest loginRequest2 = toLoginRequest(user2Request);
+
+        String authToken2 = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest2);
+
+        new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken2),
+                ResponseSpecs.requestReturnsOK())
+                .get()
+                .body("find { it.id == " + user1Account + " }", nullValue())
+                .body("size()", is(0));
+    }
+
+
+
+    @Test
+    public void userCanGetAccountTransactionsTest() {
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
+
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
+
+        LoginUserRequest loginRequest = toLoginRequest(createRequest);
+
+        String authToken = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest);
+
+        Integer accountId = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
+
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(accountId, 1000.00);
+
+        new GetAccountTransactionsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .get(accountId)
+                .body("$", notNullValue())
+                .body("size()", greaterThanOrEqualTo(1));
+    }
+
+    @Test
+    public void userCannotGetAnotherUsersAccountTransactionsTest() {
+        CreateUserRequest user1Request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
+
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(user1Request);
+
+        LoginUserRequest loginRequest1 = toLoginRequest(user1Request);
+
+        String authToken1 = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest1);
+
+        Integer user1Account = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken1),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
+
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken1),
+                ResponseSpecs.requestReturnsOK())
+                .post(user1Account, 500.00);
+
+        CreateUserRequest user2Request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
+
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(user2Request);
+
+        LoginUserRequest loginRequest2 = toLoginRequest(user2Request);
+
+        String authToken2 = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest2);
+
+        new GetAccountTransactionsRequester(
+                RequestSpecs.authWithBearerToken(authToken2),
+                ResponseSpecs.requestReturnsForbidden())
+                .get(user1Account);
+    }
+
+    @Test
+    public void userCannotGetTransactionsForNonexistentAccountTest() {
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
+
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
+
+        LoginUserRequest loginRequest = toLoginRequest(createRequest);
+
+        String authToken = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest);
+
+        new GetAccountTransactionsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsForbidden())
+                .get(999999);
+    }
+
+    @Test
+    public void userCannotGetTransactionsWithoutAuthTest() {
+        new GetAccountTransactionsRequester(
+                RequestSpecs.noAuthSpec(),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .get(1);
+    }
+
+    @Test
+    public void userCannotGetTransactionsWithInvalidTokenTest() {
+        new GetAccountTransactionsRequester(
+                RequestSpecs.authWithBearerToken("invalid.token.here"),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .get(1);
+    }
+
+    @Test
+    public void userCannotGetTransactionsWithInvalidBasicAuthTest() {
+        new GetAccountTransactionsRequester(
+                RequestSpecs.authWithBasic("invalid"),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .get(1);
+    }
+
+    @Test
+    public void userCannotGetTransactionsWithEmptyTokenTest() {
+        new GetAccountTransactionsRequester(
+                RequestSpecs.authWithBearerToken(""),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .get(1);
     }
 }

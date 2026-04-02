@@ -1,187 +1,148 @@
 package iteration1;
 
-import io.restassured.RestAssured;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
-import io.restassured.http.ContentType;
-import io.restassured.specification.RequestSpecification;
-import io.restassured.builder.RequestSpecBuilder;
-import org.apache.http.HttpStatus;
-import org.hamcrest.Matchers;
-import org.junit.jupiter.api.BeforeAll;
+import generators.RandomData;
+import models.CreateUserRequest;
+import models.CreateUserResponse;
+import models.LoginUserRequest;
+import models.UserRole;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import requests.*;
+import specs.RequestSpecs;
+import specs.ResponseSpecs;
 
-import java.util.List;
 import java.util.stream.Stream;
-import java.util.UUID;
 
-import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.notNullValue;
 
-public class CreateUserTest {
+public class CreateUserTest extends BaseTest {
 
-    private static RequestSpecification adminRequestSpec;
-
-    @BeforeAll
-    public static void setupRestAssured() {
-        RestAssured.baseURI = "http://localhost:4111";
-
-        RestAssured.filters(
-                List.of(new RequestLoggingFilter(),
-                        new ResponseLoggingFilter()));
-
-        adminRequestSpec = new RequestSpecBuilder()
-                .setContentType(ContentType.JSON)
-                .setAccept(ContentType.JSON)
-                .addHeader("Authorization", "Basic YWRtaW46YWRtaW4=")
+    private LoginUserRequest toLoginRequest(CreateUserRequest createRequest) {
+        return LoginUserRequest.builder()
+                .username(createRequest.getUsername())
+                .password(createRequest.getPassword())
                 .build();
     }
 
-    private String createRegularUserAndGetAuth() {
-        String username = "reguser" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-
-        given()
-                .spec(adminRequestSpec)
-                .body(createUserRequestBody(username, "Valid1#Pass", "USER"))
-                .post("/api/v1/admin/users")
-                .then()
-                .statusCode(HttpStatus.SC_CREATED);
-
-        return given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                {
-                "username": "%s",
-                "password": "Valid1#Pass"
-                }
-                """, username))
-                .post("/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .header("Authorization");
-    }
-
-    private String createUserRequestBody(String username, String password, String role) {
-        return String.format(
-                """
-                {
-                  "username": "%s",
-                  "password": "%s",
-                  "role": "%s"
-                }
-                """, username, password, role);
-    }
 
     public static Stream<Arguments> validUserData() {
         return Stream.of(
-                Arguments.of("JohnDoe06", "JohnDoy05#", "USER"),
-                Arguments.of("John.Doe", "Password123#", "USER"),
-                Arguments.of("john-doe", "Test1234!", "USER"),
-                Arguments.of("john_doe", "Valid1#Pass", "USER"),
-                Arguments.of("john123", "Secure1#Pass", "USER")
+                Arguments.of(RandomData.getUsername(), RandomData.getPassword(), UserRole.USER.toString()),
+                Arguments.of(RandomData.getUsernameWithDot(), RandomData.getPassword(), UserRole.USER.toString()),
+                Arguments.of(RandomData.getUsernameWithDash(), RandomData.getPassword(), UserRole.USER.toString()),
+                Arguments.of(RandomData.getUsernameWithUnderscore(), RandomData.getPassword(), UserRole.USER.toString()),
+                Arguments.of(RandomData.getUsernameWithDigits(), RandomData.getPassword(), UserRole.USER.toString())
         );
     }
 
     @MethodSource("validUserData")
     @ParameterizedTest(name = "Создание пользователя: username={0}, role={2}")
     public void adminCanCreateUserWithCorrectData(String username, String password, String role) {
-        String uniqueUsername = username + UUID.randomUUID().toString().replace("-", "").substring(0, 5);
-        uniqueUsername = uniqueUsername.substring(0, Math.min(uniqueUsername.length(), 15));
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(username)
+                .password(password)
+                .role(role)
+                .build();
 
-        String requestBody = createUserRequestBody(uniqueUsername, password, role);
+        CreateUserResponse response = new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(request)
+                .extract()
+                .as(CreateUserResponse.class);
 
-        given()
-                .spec(adminRequestSpec)
-                .body(requestBody)
-                .when()
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
-                .body("username", Matchers.equalTo(uniqueUsername))
-                .body("password", Matchers.not(Matchers.equalTo(password)))
-                .body("role", Matchers.equalTo(role));
+        softly.assertThat(response.getUsername()).isEqualTo(request.getUsername());
+        softly.assertThat(response.getPassword()).isNotEqualTo(request.getPassword());
+        softly.assertThat(response.getRole()).isEqualTo(request.getRole());
     }
 
     @Test
     public void adminCanCreateUserWithMinUsernameLengthTest() {
-        String username = "a" + UUID.randomUUID().toString().replace("-", "").substring(0, 2);
-        username = username.substring(0, 3);
-        String requestBody = createUserRequestBody(username, "Valid1#Pass", "USER");
+        String username = RandomData.getUsernameMinLength();
 
-        given()
-                .spec(adminRequestSpec)
-                .body(requestBody)
-                .when()
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
-                .body("username", Matchers.equalTo(username));
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(username)
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
+
+        CreateUserResponse response = new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(request)
+                .extract()
+                .as(CreateUserResponse.class);
+
+        softly.assertThat(response.getUsername()).isEqualTo(username);
     }
 
     @Test
     public void adminCanCreateUserWithMaxUsernameLengthTest() {
-        String username = UUID.randomUUID().toString().replace("-", "").substring(0, 15);
-        String requestBody = createUserRequestBody(username, "Valid1#Pass", "USER");
+        String username = RandomData.getUsernameMaxLength();
 
-        given()
-                .spec(adminRequestSpec)
-                .body(requestBody)
-                .when()
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
-                .body("username", Matchers.equalTo(username));
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(username)
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
+
+        CreateUserResponse response = new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(request)
+                .extract()
+                .as(CreateUserResponse.class);
+
+        softly.assertThat(response.getUsername()).isEqualTo(username);
     }
 
     @Test
     public void adminCanCreateUserWithAdminRoleTest() {
-        String username = "adm" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        String requestBody = createUserRequestBody(username, "Valid1#Pass", "ADMIN");
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.ADMIN.toString())
+                .build();
 
-        given()
-                .spec(adminRequestSpec)
-                .body(requestBody)
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
-                .body("role", Matchers.equalTo("ADMIN"));
+        CreateUserResponse response = new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(request)
+                .extract()
+                .as(CreateUserResponse.class);
+
+        softly.assertThat(response.getRole()).isEqualTo(UserRole.ADMIN.toString());
     }
 
-    public static Stream<Arguments> userInvalidData() {
+
+    public static Stream<Arguments> invalidUsernameData() {
         return Stream.of(
-                Arguments.of("", "Password22$", "USER", "username", "Username cannot be blank"),
-                Arguments.of("ab", "Password22$", "USER", "username", "Username must be between 3 and 15 characters"),
-                Arguments.of("abcdefghijklmnop", "Password22$", "USER", "username", "Username must be between 3 and 15 characters"),
-                Arguments.of("abc%", "Password22$", "USER", "username", "Username must contain only letters, digits, dashes, underscores, and dots"),
-                Arguments.of("john doe", "Password22$", "USER", "username", "Username must contain only letters, digits, dashes, underscores, and dots")
+                Arguments.of("", RandomData.getPassword(), "USER", "username", "Username cannot be blank"),
+                Arguments.of("ab", RandomData.getPassword(), "USER", "username", "Username must be between 3 and 15 characters"),
+                Arguments.of("abcdefghijklmnop", RandomData.getPassword(), "USER", "username", "Username must be between 3 and 15 characters"),
+                Arguments.of("abc%", RandomData.getPassword(), "USER", "username", "Username must contain only letters, digits, dashes, underscores, and dots"),
+                Arguments.of("john doe", RandomData.getPassword(), "USER", "username", "Username must contain only letters, digits, dashes, underscores, and dots")
         );
     }
 
-    @MethodSource("userInvalidData")
+    @MethodSource("invalidUsernameData")
     @ParameterizedTest
-    public void adminCanNotCreateUserWithInvalidUsername(String username, String password, String role,
+    public void adminCannotCreateUserWithInvalidUsername(String username, String password, String role,
                                                          String errorKey, String errorValue) {
-        String requestBody = createUserRequestBody(username, password, role);
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(username)
+                .password(password)
+                .role(role)
+                .build();
 
-        given()
-                .spec(adminRequestSpec)
-                .body(requestBody)
-                .when()
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_BAD_REQUEST)
-                .body(errorKey, Matchers.hasItem(errorValue));
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.requestReturnsBadRequest(errorKey, errorValue))
+                .post(request);
     }
+
 
     public static Stream<Arguments> invalidPasswordData() {
         String expectedMessage = "Password must contain at least one digit, one lower case, one upper case, one special character, no spaces, and be at least 8 characters long";
@@ -200,152 +161,168 @@ public class CreateUserTest {
 
     @MethodSource("invalidPasswordData")
     @ParameterizedTest
-    public void adminCanNotCreateUserWithInvalidPassword(String username, String password, String role,
+    public void adminCannotCreateUserWithInvalidPassword(String username, String password, String role,
                                                          String errorKey, String errorValue) {
-        String uniqueUsername = username + UUID.randomUUID().toString().replace("-", "").substring(0, 5);
-        uniqueUsername = uniqueUsername.substring(0, Math.min(uniqueUsername.length(), 15));
-        String requestBody = createUserRequestBody(uniqueUsername, password, role);
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(password)
+                .role(role)
+                .build();
 
-        given()
-                .spec(adminRequestSpec)
-                .body(requestBody)
-                .when()
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_BAD_REQUEST)
-                .body(errorKey, Matchers.hasItem(errorValue));
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.requestReturnsBadRequest(errorKey, errorValue))
+                .post(request);
     }
+
 
     @Test
     public void adminCannotCreateUserWithInvalidRoleTest() {
-        String username = "invrole" + UUID.randomUUID().toString().replace("-", "").substring(0, 6);
-        String requestBody = createUserRequestBody(username, "Valid1#Pass", "EDITOR");
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role("EDITOR")
+                .build();
 
-        given()
-                .spec(adminRequestSpec)
-                .body(requestBody)
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_BAD_REQUEST);
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.requestReturnsBadRequest())
+                .post(request);
     }
+
 
     @Test
-    public void adminCanNotCreateUserThatAlreadyExistsTest() {
-        String username = "exist" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        username = username.substring(0, Math.min(username.length(), 15));
-        String password = "Valid1#Pass";
-        String role = "USER";
+    public void adminCannotCreateUserThatAlreadyExistsTest() {
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        String requestBody = createUserRequestBody(username, password, role);
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(request);
 
-        given()
-                .spec(adminRequestSpec)
-                .body(requestBody)
-                .when()
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED);
-
-        given()
-                .spec(adminRequestSpec)
-                .body(requestBody)
-                .when()
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_BAD_REQUEST)
-                .body(Matchers.equalTo("Error: Username '" + username + "' already exists."));
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.requestReturnsBadRequest("Error: Username '" + request.getUsername() + "' already exists."))
+                .post(request);
     }
+
 
     @Test
     public void adminCanGetAllUsersTest() {
-        String uniqueUsername = "list" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        given()
-                .spec(adminRequestSpec)
-                .body(createUserRequestBody(uniqueUsername, "Valid1#Pass", "USER"))
-                .post("/api/v1/admin/users")
-                .then()
-                .statusCode(HttpStatus.SC_CREATED);
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(request);
 
-        given()
-                .spec(adminRequestSpec)
-                .get("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .body("find { it.username == '" + uniqueUsername + "' }", Matchers.notNullValue());
+        new AdminGetAllUsersRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .get()
+                .body("find { it.username == '" + request.getUsername() + "' }", notNullValue());
     }
 
     @Test
     public void userCannotGetAllUsersWithBearerTokenTest() {
-        String userAuth = createRegularUserAndGetAuth();
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        given()
-                .header("Authorization", userAuth)
-                .get("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_FORBIDDEN);
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
+
+
+        LoginUserRequest loginRequest = toLoginRequest(createRequest);
+
+        String authToken = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .post(loginRequest)
+                .extract()
+                .header("Authorization");
+
+        new AdminGetAllUsersRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsForbidden())
+                .get();
     }
+
 
     @Test
     public void adminCanDeleteUserTest() {
-        String username = "del" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        Integer userId = given()
-                .spec(adminRequestSpec)
-                .body(createUserRequestBody(username, "Valid1#Pass", "USER"))
-                .post("/api/v1/admin/users")
-                .then()
-                .statusCode(HttpStatus.SC_CREATED)
+        Integer userId = new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(request)
                 .extract()
-                .path("id");
+                .jsonPath()
+                .getInt("id");
 
+        new AdminDeleteUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .delete(userId);
 
-        given()
-                .spec(adminRequestSpec)
-                .delete("/api/v1/admin/users/" + userId)
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK);
+        LoginUserRequest loginRequest = toLoginRequest(request);
 
-        given()
-                .contentType(ContentType.JSON)
-                .body(String.format("""
-                {
-                "username": "%s",
-                "password": "Valid1#Pass"
-                }
-                """, username))
-                .post("/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_UNAUTHORIZED);
+        new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .post(loginRequest);
     }
 
     @Test
     public void adminCannotDeleteNonExistentUserTest() {
-        given()
-                .spec(adminRequestSpec)
-                .delete("/api/v1/admin/users/999999")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_NOT_FOUND);
+        new AdminDeleteUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.requestReturnsNotFound())
+                .delete(999999);
     }
 
     @Test
     public void userCannotDeleteUserTest() {
-        String userAuth = createRegularUserAndGetAuth();
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        given()
-                .header("Authorization", userAuth)
-                .delete("/api/v1/admin/users/1")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_FORBIDDEN);
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(request);
+
+        LoginUserRequest loginRequest = toLoginRequest(request);
+
+        String authToken = new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .post(loginRequest)
+                .extract()
+                .header("Authorization");
+
+        new AdminDeleteUserRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsForbidden())
+                .delete(1);
     }
 }

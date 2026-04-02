@@ -1,166 +1,123 @@
 package iteration1;
 
-import io.restassured.RestAssured;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
-import io.restassured.http.ContentType;
+import generators.RandomData;
+import models.CreateUserRequest;
+import models.LoginUserRequest;
+import models.UserRole;
 import org.apache.http.HttpStatus;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import static org.assertj.core.api.Assertions.within;
+import requests.*;
+import specs.RequestSpecs;
+import specs.ResponseSpecs;
 
-import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static io.restassured.RestAssured.given;
+public class TransferTest extends BaseTest {
 
-public class TransferTest {
-
-    @BeforeAll
-    public static void setupRestAssured() {
-        RestAssured.baseURI = "http://localhost:4111";
-
-        RestAssured.filters(
-                List.of(new RequestLoggingFilter(),
-                        new ResponseLoggingFilter()));
+    private LoginUserRequest toLoginRequest(CreateUserRequest createRequest) {
+        return LoginUserRequest.builder()
+                .username(createRequest.getUsername())
+                .password(createRequest.getPassword())
+                .build();
     }
 
     private String createUserAndGetAuth(String prefix) {
-        int maxPrefixLength = 7;
-        String shortPrefix = prefix.length() > maxPrefixLength ? prefix.substring(0, maxPrefixLength) : prefix;
-        String username = shortPrefix + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
 
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=")
-                .body(String.format("""
-                    {
-                    "username": "%s",
-                    "password": "JohnDoe01#",
-                    "role": "USER"
-                    }
-                    """, username))
-                .post("/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED);
+        String uniqueSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 6);
+        String username = prefix + uniqueSuffix;
 
-        return given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                    {
-                    "username": "%s",
-                    "password": "JohnDoe01#"
-                    }
-                    """, username))
-                .post("/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .header("Authorization");
-    }
-
-    private Integer createAccount(String authHeader) {
-        return given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .post("/api/v1/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED)
-                .extract()
-                .path("id");
-    }
-
-    private void depositToAccount(String authHeader, Integer accountId, double amount) {
-        given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format(Locale.US, """
-                        {
-                        "id": %d,
-                        "balance": %.2f
-                        }
-                        """, accountId, amount))
-                .post("/api/v1/accounts/deposit")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK);
-    }
-
-    private void depositMultipleAmounts(String authHeader, Integer accountId, double totalAmount) {
-        double remaining = totalAmount;
-        while (remaining > 0) {
-            double depositAmount = Math.min(remaining, 5000.0);
-            depositToAccount(authHeader, accountId, depositAmount);
-            remaining -= depositAmount;
+        if (username.length() > 15) {
+            username = username.substring(0, 15);
         }
+
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(username)
+                .password("Valid1#Pass")
+                .role(UserRole.USER.toString())
+                .build();
+
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
+
+        LoginUserRequest loginRequest = toLoginRequest(createRequest);
+
+        return new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest);
     }
 
-    private Double getAccountBalance(String authHeader, Integer accountId) {
-        Float balance = given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .get("/api/v1/customer/accounts")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .path("find { it.id == " + accountId + " }.balance");
-        return balance != null ? balance.doubleValue() : 0.0;
-    }
 
     @ParameterizedTest
     @MethodSource("provideValidTransferData")
     public void userCanTransferValidAmountsTest(double depositAmount, double transferAmount) {
-        String authHeader = createUserAndGetAuth("Transfer");
-        Integer fromAccountId = createAccount(authHeader);
-        Integer toAccountId = createAccount(authHeader);
+        String authToken = createUserAndGetAuth("Tr");
 
-        depositToAccount(authHeader, fromAccountId, depositAmount);
+        Integer fromAccount = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        double fromInitialBalance = getAccountBalance(authHeader, fromAccountId);
-        double toInitialBalance = getAccountBalance(authHeader, toAccountId);
+        Integer toAccount = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format(Locale.US, """
-                        {
-                        "senderAccountId": %d,
-                        "receiverAccountId": %d,
-                        "amount": %.2f
-                        }
-                        """, fromAccountId, toAccountId, transferAmount))
-                .post("/api/v1/accounts/transfer")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK);
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, depositAmount);
 
-        double fromFinalBalance = getAccountBalance(authHeader, fromAccountId);
-        double toFinalBalance = getAccountBalance(authHeader, toAccountId);
+        double fromInitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
 
-        org.junit.jupiter.api.Assertions.assertEquals(fromInitialBalance - transferAmount, fromFinalBalance, 0.01);
-        org.junit.jupiter.api.Assertions.assertEquals(toInitialBalance + transferAmount, toFinalBalance, 0.01);
+        double toInitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(toAccount);
+
+        new TransferRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, toAccount, transferAmount);
+
+        double fromFinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
+
+        double toFinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(toAccount);
+
+        softly.assertThat(fromFinalBalance)
+                .isCloseTo(fromInitialBalance - transferAmount, within(0.01));
+        softly.assertThat(toFinalBalance)
+                .isCloseTo(toInitialBalance + transferAmount, within(0.01));
     }
 
     private static Stream<Arguments> provideValidTransferData() {
         return Stream.of(
-                Arguments.of(1000.0, 300.0, 700.0, 300.0),
-                Arguments.of(500.0, 500.0, 0.0, 500.0),
-                Arguments.of(5000.0, 1.0, 4999.0, 1.0),
-                Arguments.of(2000.0, 1999.99, 0.01, 1999.99)
+                Arguments.of(1000.0, 300.0),
+                Arguments.of(500.0, 500.0),
+                Arguments.of(5000.0, 1.0),
+                Arguments.of(2000.0, 1999.99)
         );
     }
 
@@ -169,235 +126,344 @@ public class TransferTest {
     public void userCanTransferToAnotherUserTest(double depositAmount, double transferAmount) {
         String user1Auth = createUserAndGetAuth("Sender");
         String user2Auth = createUserAndGetAuth("Receiver");
-        Integer fromAccountId = createAccount(user1Auth);
-        Integer toAccountId = createAccount(user2Auth);
 
-        depositToAccount(user1Auth, fromAccountId, depositAmount);
+        Integer fromAccount = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(user1Auth),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        double fromInitialBalance = getAccountBalance(user1Auth, fromAccountId);
-        double toInitialBalance = getAccountBalance(user2Auth, toAccountId);
+        Integer toAccount = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(user2Auth),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        given()
-                .header("Authorization", user1Auth)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format(Locale.US, """
-                        {
-                        "senderAccountId": %d,
-                        "receiverAccountId": %d,
-                        "amount": %.2f
-                        }
-                        """, fromAccountId, toAccountId, transferAmount))
-                .post("/api/v1/accounts/transfer")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK);
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(user1Auth),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, depositAmount);
 
-        double fromFinalBalance = getAccountBalance(user1Auth, fromAccountId);
-        double toFinalBalance = getAccountBalance(user2Auth, toAccountId);
+        double fromInitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(user1Auth),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
 
-        org.junit.jupiter.api.Assertions.assertEquals(fromInitialBalance - transferAmount, fromFinalBalance, 0.01);
-        org.junit.jupiter.api.Assertions.assertEquals(toInitialBalance + transferAmount, toFinalBalance, 0.01);
+        double toInitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(user2Auth),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(toAccount);
+
+        new TransferRequester(
+                RequestSpecs.authWithBearerToken(user1Auth),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, toAccount, transferAmount);
+
+        double fromFinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(user1Auth),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
+
+        double toFinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(user2Auth),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(toAccount);
+
+        softly.assertThat(fromFinalBalance).isEqualTo(fromInitialBalance - transferAmount);
+        softly.assertThat(toFinalBalance).isEqualTo(toInitialBalance + transferAmount);
     }
 
     private static Stream<Arguments> provideValidTransferToAnotherUserData() {
         return Stream.of(
-                Arguments.of(1000.0, 400.0, 600.0, 400.0),
-                Arguments.of(2000.0, 1000.0, 1000.0, 1000.0),
-                Arguments.of(500.0, 250.0, 250.0, 250.0)
+                Arguments.of(1000.0, 400.0),
+                Arguments.of(2000.0, 1000.0),
+                Arguments.of(500.0, 250.0)
         );
     }
 
     @ParameterizedTest
     @MethodSource("provideInvalidTransferData")
     public void userCannotMakeInvalidTransferTest(double amount, String accountType, int expectedStatusCode) {
-        String authHeader = createUserAndGetAuth("TransferNeg");
-        Integer fromAccountId = createAccount(authHeader);
-        depositToAccount(authHeader, fromAccountId, 1000.0);
+        String authToken = createUserAndGetAuth("TransferNeg");
 
-        double fromInitialBalance = getAccountBalance(authHeader, fromAccountId);
+        Integer fromAccount = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
+
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, 1000.0);
+
+        double fromInitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
 
         Integer targetAccountId;
         double toInitialBalance = 0.0;
-        String targetAuthHeader = null;
+        String targetAuthToken = null;
 
         switch (accountType) {
             case "valid":
-                targetAccountId = createAccount(authHeader);
-                toInitialBalance = getAccountBalance(authHeader, targetAccountId);
-                targetAuthHeader = authHeader;
+                targetAccountId = new CreateAccountRequester(
+                        RequestSpecs.authWithBearerToken(authToken),
+                        ResponseSpecs.entityWasCreated())
+                        .post(null)
+                        .extract()
+                        .jsonPath()
+                        .getInt("id");
+                toInitialBalance = new GetCustomerAccountsRequester(
+                        RequestSpecs.authWithBearerToken(authToken),
+                        ResponseSpecs.requestReturnsOK())
+                        .getBalance(targetAccountId);
+                targetAuthToken = authToken;
                 break;
             case "non-existent-acc":
                 targetAccountId = 999999;
                 break;
             default:
-                targetAccountId = fromAccountId;
+                targetAccountId = fromAccount;
         }
 
-        given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format(Locale.US, """
-                        {
-                        "senderAccountId": %d,
-                        "receiverAccountId": %d,
-                        "amount": %.2f
-                        }
-                        """, fromAccountId, targetAccountId, amount))
-                .post("/api/v1/accounts/transfer")
-                .then()
-                .assertThat()
-                .statusCode(expectedStatusCode);
+        new TransferRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.custom(expectedStatusCode))
+                .post(fromAccount, targetAccountId, amount);
 
-        double fromFinalBalance = getAccountBalance(authHeader, fromAccountId);
-        org.junit.jupiter.api.Assertions.assertEquals(fromInitialBalance, fromFinalBalance, 0.01);
+        double fromFinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
+
+        softly.assertThat(fromFinalBalance).isEqualTo(fromInitialBalance);
 
         if ("valid".equals(accountType)) {
-            double toFinalBalance = getAccountBalance(targetAuthHeader, targetAccountId);
-            org.junit.jupiter.api.Assertions.assertEquals(toInitialBalance, toFinalBalance, 0.01);
+            double toFinalBalance = new GetCustomerAccountsRequester(
+                    RequestSpecs.authWithBearerToken(targetAuthToken),
+                    ResponseSpecs.requestReturnsOK())
+                    .getBalance(targetAccountId);
+            softly.assertThat(toFinalBalance).isEqualTo(toInitialBalance);
         }
     }
 
     private static Stream<Arguments> provideInvalidTransferData() {
         return Stream.of(
-                Arguments.of(-50.0, "valid", 400),
-                Arguments.of(0.0, "valid", 400),
-                Arguments.of(10001.0, "valid", 400),
-                Arguments.of(999999.0, "valid", 400),
-                Arguments.of(100.0, "non-existent-acc", 400)
+                Arguments.of(-50.0, "valid", HttpStatus.SC_BAD_REQUEST),
+                Arguments.of(0.0, "valid", HttpStatus.SC_BAD_REQUEST),
+                Arguments.of(10001.0, "valid", HttpStatus.SC_BAD_REQUEST),
+                Arguments.of(999999.0, "valid", HttpStatus.SC_BAD_REQUEST),
+                Arguments.of(100.0, "non-existent-acc", HttpStatus.SC_BAD_REQUEST)
         );
     }
 
-    private static Stream<Arguments> provideUnauthorizedData() {
-        return Stream.of(
-                Arguments.of("", 401),
-                Arguments.of("Bearer invalid.token", 401),
-                Arguments.of("Basic invalid", 401)
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideUnauthorizedData")
-    public void userCannotTransferWithoutAuthTest(String authHeader, int expectedStatusCode) {
-        given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body("""
-                        {
-                        "senderAccountId": 1,
-                        "receiverAccountId": 2,
-                        "amount": 100.00
-                        }
-                        """)
-                .post("/api/v1/accounts/transfer")
-                .then()
-                .assertThat()
-                .statusCode(expectedStatusCode);
-    }
 
     @Test
     public void userCannotTransferFromAnotherUsersAccountTest() {
         String user1Auth = createUserAndGetAuth("User1");
         String user2Auth = createUserAndGetAuth("User2");
 
-        Integer user1Account = createAccount(user1Auth);
-        Integer user2Account = createAccount(user2Auth);
+        Integer user1Account = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(user1Auth),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        depositToAccount(user1Auth, user1Account, 1000.0);
+        Integer user2Account = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(user2Auth),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        double user1InitialBalance = getAccountBalance(user1Auth, user1Account);
-        double user2InitialBalance = getAccountBalance(user2Auth, user2Account);
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(user1Auth),
+                ResponseSpecs.requestReturnsOK())
+                .post(user1Account, 1000.0);
 
-        given()
-                .header("Authorization", user2Auth)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format(Locale.US, """
-                        {
-                        "senderAccountId": %d,
-                        "receiverAccountId": %d,
-                        "amount": 100.00
-                        }
-                        """, user1Account, user2Account))
-                .post("/api/v1/accounts/transfer")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_FORBIDDEN);
+        double user1InitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(user1Auth),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(user1Account);
 
-        double user1FinalBalance = getAccountBalance(user1Auth, user1Account);
-        double user2FinalBalance = getAccountBalance(user2Auth, user2Account);
+        double user2InitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(user2Auth),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(user2Account);
 
-        org.junit.jupiter.api.Assertions.assertEquals(user1InitialBalance, user1FinalBalance, 0.01);
-        org.junit.jupiter.api.Assertions.assertEquals(user2InitialBalance, user2FinalBalance, 0.01);
+        new TransferRequester(
+                RequestSpecs.authWithBearerToken(user2Auth),
+                ResponseSpecs.requestReturnsForbidden())
+                .post(user1Account, user2Account, 100.00);
+
+        double user1FinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(user1Auth),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(user1Account);
+
+        double user2FinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(user2Auth),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(user2Account);
+
+        softly.assertThat(user1FinalBalance).isEqualTo(user1InitialBalance);
+        softly.assertThat(user2FinalBalance).isEqualTo(user2InitialBalance);
     }
+
 
     @Test
     public void userCanTransferMaxLimitAmountTest() {
-        String authHeader = createUserAndGetAuth("Transfer");
-        Integer fromAccount = createAccount(authHeader);
-        Integer toAccount = createAccount(authHeader);
+        String authToken = createUserAndGetAuth("Transfer");
 
-        depositMultipleAmounts(authHeader, fromAccount, 15000.0);
+        Integer fromAccount = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        double fromInitialBalance = getAccountBalance(authHeader, fromAccount);
-        double toInitialBalance = getAccountBalance(authHeader, toAccount);
+        Integer toAccount = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format(Locale.US, """
-                        {
-                        "senderAccountId": %d,
-                        "receiverAccountId": %d,
-                        "amount": %.2f
-                        }
-                        """, fromAccount, toAccount, 10000.00))
-                .post("/api/v1/accounts/transfer")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK);
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, 5000.00);
 
-        double fromFinalBalance = getAccountBalance(authHeader, fromAccount);
-        double toFinalBalance = getAccountBalance(authHeader, toAccount);
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, 5000.00);
 
-        org.junit.jupiter.api.Assertions.assertEquals(fromInitialBalance - 10000.0, fromFinalBalance, 0.01);
-        org.junit.jupiter.api.Assertions.assertEquals(toInitialBalance + 10000.0, toFinalBalance, 0.01);
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, 5000.00);
+
+        double fromInitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
+
+        double toInitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(toAccount);
+
+        new TransferRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, toAccount, 10000.00);
+
+        double fromFinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
+
+        double toFinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(toAccount);
+
+        softly.assertThat(fromFinalBalance).isEqualTo(fromInitialBalance - 10000.0);
+        softly.assertThat(toFinalBalance).isEqualTo(toInitialBalance + 10000.0);
     }
 
     @Test
     public void userCannotTransferAboveLimitTest() {
-        String authHeader = createUserAndGetAuth("Transfer");
-        Integer fromAccount = createAccount(authHeader);
-        Integer toAccount = createAccount(authHeader);
+        String authToken = createUserAndGetAuth("Transfer");
 
-        depositMultipleAmounts(authHeader, fromAccount, 15000.0);
+        Integer fromAccount = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        double fromInitialBalance = getAccountBalance(authHeader, fromAccount);
-        double toInitialBalance = getAccountBalance(authHeader, toAccount);
+        Integer toAccount = new CreateAccountRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.entityWasCreated())
+                .post(null)
+                .extract()
+                .jsonPath()
+                .getInt("id");
 
-        given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format(Locale.US, """
-                        {
-                        "senderAccountId": %d,
-                        "receiverAccountId": %d,
-                        "amount": %.2f
-                        }
-                        """, fromAccount, toAccount, 10000.01))
-                .post("/api/v1/accounts/transfer")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_BAD_REQUEST);
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, 5000.00);
 
-        double fromFinalBalance = getAccountBalance(authHeader, fromAccount);
-        double toFinalBalance = getAccountBalance(authHeader, toAccount);
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, 5000.00);
 
-        org.junit.jupiter.api.Assertions.assertEquals(fromInitialBalance, fromFinalBalance, 0.01);
-        org.junit.jupiter.api.Assertions.assertEquals(toInitialBalance, toFinalBalance, 0.01);
+        new DepositRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .post(fromAccount, 5000.00);
+
+        double fromInitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
+
+        double toInitialBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(toAccount);
+
+        new TransferRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsBadRequest())
+                .post(fromAccount, toAccount, 10000.01);
+
+        double fromFinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(fromAccount);
+
+        double toFinalBalance = new GetCustomerAccountsRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getBalance(toAccount);
+
+        softly.assertThat(fromFinalBalance).isEqualTo(fromInitialBalance);
+        softly.assertThat(toFinalBalance).isEqualTo(toInitialBalance);
+    }
+
+    private static Stream<Arguments> provideUnauthorizedData() {
+        return Stream.of(
+                Arguments.of("", HttpStatus.SC_UNAUTHORIZED),
+                Arguments.of("Bearer invalid.token", HttpStatus.SC_UNAUTHORIZED),
+                Arguments.of("Basic invalid", HttpStatus.SC_UNAUTHORIZED)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideUnauthorizedData")
+    public void userCannotTransferWithoutAuthTest(String authHeader, int expectedStatusCode) {
+        new TransferRequester(
+                RequestSpecs.customAuth(authHeader),
+                ResponseSpecs.custom(expectedStatusCode))
+                .post(1, 2, 100.00);
     }
 }
