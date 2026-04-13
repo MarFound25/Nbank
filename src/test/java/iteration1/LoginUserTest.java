@@ -1,76 +1,147 @@
 package iteration1;
 
-
-import io.restassured.RestAssured;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
-import io.restassured.http.ContentType;
-import org.apache.http.HttpStatus;
-import org.hamcrest.Matchers;
-import org.junit.jupiter.api.BeforeAll;
+import generators.RandomData;
+import models.CreateUserRequest;
+import models.LoginUserRequest;
+import models.UserRole;
 import org.junit.jupiter.api.Test;
+import requests.AdminCreateUserRequester;
+import requests.LoginUserRequester;
+import specs.RequestSpecs;
+import specs.ResponseSpecs;
 
-import java.util.List;
+import static org.hamcrest.Matchers.notNullValue;
 
-import static io.restassured.RestAssured.given;
+public class LoginUserTest extends BaseTest {
 
-public class LoginUserTest {
-    @BeforeAll
-    public static void setupRestAssured() {
-        RestAssured.filters(
-                List.of(new RequestLoggingFilter(),
-                        new ResponseLoggingFilter()));
+    private LoginUserRequest toLoginRequest(CreateUserRequest createRequest) {
+        return LoginUserRequest.builder()
+                .username(createRequest.getUsername())
+                .password(createRequest.getPassword())
+                .build();
     }
+
     @Test
     public void adminCanGenerateAuthTokenTest() {
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body("""
-                        {
-                        "username": "admin",
-                        "password": "admin"
-                        }
-                        """)
-                .post("http://localhost:4111/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=");
+        LoginUserRequest request = LoginUserRequest.builder()
+                .username("admin")
+                .password("admin")
+                .build();
+
+        new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .post(request)
+                .header("Authorization", notNullValue());
     }
 
     @Test
     public void userCanGenerateAuthTokenTest() {
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=")
-                .body("""
-                        {
-                        "username": "John01",
-                        "password": "JohnDoe01#",
-                        "role": "USER"
-                        }
-                        """)
-                .post("http://localhost:4111/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED);
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
 
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body("""
-                        {
-                        "username": "John01",
-                        "password": "JohnDoe01#"
-                        }
-                        """)
-                .post("http://localhost:4111/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .header("Authorization", Matchers.notNullValue());
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
+
+        LoginUserRequest loginRequest = toLoginRequest(createRequest);
+
+        new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .post(loginRequest)
+                .header("Authorization", notNullValue());
+    }
+
+
+    @Test
+    public void userCannotLoginWithWrongPasswordTest() {
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
+
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
+
+        LoginUserRequest loginRequest = LoginUserRequest.builder()
+                .username(createRequest.getUsername())
+                .password("WrongPassword123!")
+                .build();
+
+        new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .post(loginRequest);
+    }
+
+    @Test
+    public void userCannotLoginWithNonExistentUsernameTest() {
+        LoginUserRequest request = LoginUserRequest.builder()
+                .username("nonexistentuser123")
+                .password("AnyPassword123!")
+                .build();
+
+        new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .post(request);
+    }
+
+    @Test
+    public void userCannotLoginWithEmptyUsernameTest() {
+        LoginUserRequest request = LoginUserRequest.builder()
+                .username("")
+                .password(RandomData.getPassword())
+                .build();
+
+        new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .post(request);
+    }
+
+    @Test
+    public void userCannotLoginWithEmptyPasswordTest() {
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .role(UserRole.USER.toString())
+                .build();
+
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
+
+        LoginUserRequest loginRequest = LoginUserRequest.builder()
+                .username(createRequest.getUsername())
+                .password("")
+                .build();
+
+        new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .post(loginRequest);
+    }
+
+    @Test
+    public void userCannotLoginWithEmptyCredentialsTest() {
+        LoginUserRequest request = LoginUserRequest.builder()
+                .username("")
+                .password("")
+                .build();
+
+        new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .post(request);
     }
 }
-

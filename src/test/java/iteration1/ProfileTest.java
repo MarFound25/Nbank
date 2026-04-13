@@ -1,88 +1,54 @@
 package iteration1;
 
-import io.restassured.RestAssured;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
-import io.restassured.http.ContentType;
+import generators.RandomData;
+import models.*;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import requests.*;
+import specs.RequestSpecs;
+import specs.ResponseSpecs;
 
-import java.util.List;
-import java.util.Random;
 import java.util.stream.Stream;
 
-import static io.restassured.RestAssured.given;
+public class ProfileTest extends BaseTest {
 
-public class ProfileTest {
-    @BeforeAll
-    public static void setupRestAssured() {
-        RestAssured.filters(
-                List.of(new RequestLoggingFilter(),
-                        new ResponseLoggingFilter()));
-    }
 
     private String createUserAndGetAuth(String name) {
-        Random random = new Random();
-        String username = "ProfileUser" + random.nextInt(1000);
+        CreateUserRequest createRequest = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .name(name)
+                .role(UserRole.USER.toString())
+                .build();
 
-        given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .header("Authorization", "Basic YWRtaW46YWRtaW4=")
-                .body(String.format("""
-                        {
-                        "username": "%s",
-                        "password": "JohnDoe01#",
-                        "name": "%s",
-                        "role": "USER"
-                        }
-                        """, username, name))
-                .post("http://localhost:4111/api/v1/admin/users")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_CREATED);
+        new AdminCreateUserRequester(
+                RequestSpecs.adminSpec(),
+                ResponseSpecs.entityWasCreated())
+                .post(createRequest);
 
-        return given()
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                        {
-                        "username": "%s",
-                        "password": "JohnDoe01#"
-                        }
-                        """, username))
-                .post("http://localhost:4111/api/v1/auth/login")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .extract()
-                .header("Authorization");
+        LoginUserRequest loginRequest = LoginUserRequest.builder()
+                .username(createRequest.getUsername())
+                .password(createRequest.getPassword())
+                .build();
+
+        return new LoginUserRequester(
+                RequestSpecs.unauthSpec(),
+                ResponseSpecs.requestReturnsOK())
+                .getToken(loginRequest);
     }
 
-    @ParameterizedTest
-    @MethodSource("provideValidNameData")
-    public void userCanChangeNameWithValidDataTest(String oldName, String newName) {
-        String authHeader = createUserAndGetAuth(oldName);
-
-        given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                    {
-                    "name": "%s"
-                    }
-                    """, newName))
-                .put("http://localhost:4111/api/v1/customer/profile")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_OK)
-                .body("customer.name", Matchers.is(newName));
+    private String getUserName(String authToken) {
+        ProfileResponse profile = new GetCustomerProfileRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .getProfile();
+        return profile.getName();
     }
+
 
     private static Stream<Arguments> provideValidNameData() {
         return Stream.of(
@@ -95,24 +61,28 @@ public class ProfileTest {
     }
 
     @ParameterizedTest
-    @MethodSource("provideInvalidNameData")
-    public void userCannotChangeNameWithInvalidDataTest(String oldName, String invalidName) {
-        String authHeader = createUserAndGetAuth(oldName);
+    @MethodSource("provideValidNameData")
+    public void userCanChangeNameWithValidDataTest(String oldName, String newName) {
+        String authToken = createUserAndGetAuth(oldName);
 
-        given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body(String.format("""
-                        {
-                        "name": "%s"
-                        }
-                        """, invalidName))
-                .put("http://localhost:4111/api/v1/customer/profile")
-                .then()
-                .assertThat()
-                .statusCode(HttpStatus.SC_BAD_REQUEST);
+        String currentName = getUserName(authToken);
+        softly.assertThat(currentName).isEqualTo(oldName);
+
+        UpdateProfileRequest updateRequest = UpdateProfileRequest.builder()
+                .name(newName)
+                .build();
+
+        UpdateProfileResponse response = new UpdateCustomerProfileRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .updateProfile(updateRequest);
+
+        softly.assertThat(response.getCustomer().getName()).isEqualTo(newName);
+
+        String updatedName = getUserName(authToken);
+        softly.assertThat(updatedName).isEqualTo(newName);
     }
+
 
     private static Stream<Arguments> provideInvalidNameData() {
         return Stream.of(
@@ -127,23 +97,26 @@ public class ProfileTest {
     }
 
     @ParameterizedTest
-    @MethodSource("provideUnauthorizedData")
-    public void userCannotChangeNameWithoutAuthTest(String authHeader, int expectedStatusCode) {
+    @MethodSource("provideInvalidNameData")
+    public void userCannotChangeNameWithInvalidDataTest(String oldName, String invalidName) {
+        String authToken = createUserAndGetAuth(oldName);
 
-        given()
-                .header("Authorization", authHeader)
-                .contentType(ContentType.JSON)
-                .accept(ContentType.JSON)
-                .body("""
-                        {
-                        "name": "New Name"
-                        }
-                        """)
-                .put("http://localhost:4111/api/v1/customer/profile")  // ← ИСПРАВЛЕНО!
-                .then()
-                .assertThat()
-                .statusCode(expectedStatusCode);
+        String currentName = getUserName(authToken);
+        softly.assertThat(currentName).isEqualTo(oldName);
+
+        UpdateProfileRequest updateRequest = UpdateProfileRequest.builder()
+                .name(invalidName)
+                .build();
+
+        new UpdateCustomerProfileRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsBadRequest())
+                .put(updateRequest);
+
+        String unchangedName = getUserName(authToken);
+        softly.assertThat(unchangedName).isEqualTo(oldName);
     }
+
 
     private static Stream<Arguments> provideUnauthorizedData() {
         return Stream.of(
@@ -151,5 +124,48 @@ public class ProfileTest {
                 Arguments.of("Bearer invalid.token", HttpStatus.SC_UNAUTHORIZED),
                 Arguments.of("Basic invalid", HttpStatus.SC_UNAUTHORIZED)
         );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideUnauthorizedData")
+    public void userCannotChangeNameWithoutAuthTest(String authHeader, int expectedStatusCode) {
+        UpdateProfileRequest updateRequest = UpdateProfileRequest.builder()
+                .name("New Name")
+                .build();
+
+        new UpdateCustomerProfileRequester(
+                RequestSpecs.customAuth(authHeader),
+                ResponseSpecs.custom(expectedStatusCode))
+                .put(updateRequest);
+    }
+
+
+    @Test
+    public void userCanGetOwnProfileTest() {
+        String expectedName = "John Doe";
+        String authToken = createUserAndGetAuth(expectedName);
+
+        new GetCustomerProfileRequester(
+                RequestSpecs.authWithBearerToken(authToken),
+                ResponseSpecs.requestReturnsOK())
+                .get()
+                .body("name", Matchers.equalTo(expectedName))
+                .body("username", Matchers.notNullValue());
+    }
+
+    @Test
+    public void userCannotGetProfileWithoutAuthTest() {
+        new GetCustomerProfileRequester(
+                RequestSpecs.noAuthSpec(),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .get();
+    }
+
+    @Test
+    public void userCannotGetProfileWithInvalidTokenTest() {
+        new GetCustomerProfileRequester(
+                RequestSpecs.authWithBearerToken("invalid.token.here"),
+                ResponseSpecs.requestReturnsUnauthorized())
+                .get();
     }
 }
