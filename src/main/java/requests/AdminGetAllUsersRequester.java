@@ -1,8 +1,13 @@
 package requests;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import io.restassured.response.ValidatableResponse;
 import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
+import models.CreateUserResponse;
+import models.UserListResponse;
+
+import java.util.List;
 
 import static io.restassured.RestAssured.given;
 
@@ -23,5 +28,12 @@ public class AdminGetAllUsersRequester {
                 .get("/api/v1/admin/users")
                 .then()
                 .spec(responseSpec);
+    }
+
+    public List<CreateUserResponse> getAllUsers() {
+        return get()
+                .extract()
+                .jsonPath()
+                .getList("", CreateUserResponse.class);
     }
 }

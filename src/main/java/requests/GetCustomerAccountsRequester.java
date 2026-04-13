@@ -3,6 +3,9 @@ package requests;
 import io.restassured.response.ValidatableResponse;
 import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
+import models.Account;
+
+import java.util.List;
 
 import static io.restassured.RestAssured.given;
 
@@ -25,11 +28,19 @@ public class GetCustomerAccountsRequester {
                 .spec(responseSpec);
     }
 
-    public double getBalance(Integer accountId) {
-        Float balance = get()
+    public List<Account> getAccounts() {
+        return get()
                 .extract()
                 .jsonPath()
-                .getFloat("find { it.id == " + accountId + " }.balance");
-        return balance != null ? balance.doubleValue() : 0.0;
+                .getList("", Account.class);
+    }
+
+    public Double getBalance(Integer accountId) {
+        List<Account> accounts = getAccounts();
+        return accounts.stream()
+                .filter(a -> a.getId().equals(accountId))
+                .findFirst()
+                .map(Account::getBalance)
+                .orElse(0.0);
     }
 }

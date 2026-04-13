@@ -1,9 +1,7 @@
 package iteration1;
 
 import generators.RandomData;
-import models.CreateUserRequest;
-import models.UpdateProfileRequest;
-import models.UserRole;
+import models.*;
 import org.apache.http.HttpStatus;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -13,7 +11,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import requests.*;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
-import models.LoginUserRequest;
 
 import java.util.stream.Stream;
 
@@ -41,19 +38,15 @@ public class ProfileTest extends BaseTest {
         return new LoginUserRequester(
                 RequestSpecs.unauthSpec(),
                 ResponseSpecs.requestReturnsOK())
-                .post(loginRequest)
-                .extract()
-                .header("Authorization");
+                .getToken(loginRequest);
     }
 
     private String getUserName(String authToken) {
-        return new GetCustomerProfileRequester(
+        ProfileResponse profile = new GetCustomerProfileRequester(
                 RequestSpecs.authWithBearerToken(authToken),
                 ResponseSpecs.requestReturnsOK())
-                .get()
-                .extract()
-                .jsonPath()
-                .getString("name");
+                .getProfile();
+        return profile.getName();
     }
 
 
@@ -79,11 +72,12 @@ public class ProfileTest extends BaseTest {
                 .name(newName)
                 .build();
 
-        new UpdateCustomerProfileRequester(
+        UpdateProfileResponse response = new UpdateCustomerProfileRequester(
                 RequestSpecs.authWithBearerToken(authToken),
                 ResponseSpecs.requestReturnsOK())
-                .put(updateRequest)
-                .body("customer.name", Matchers.is(newName));
+                .updateProfile(updateRequest);
+
+        softly.assertThat(response.getCustomer().getName()).isEqualTo(newName);
 
         String updatedName = getUserName(authToken);
         softly.assertThat(updatedName).isEqualTo(newName);

@@ -21,7 +21,6 @@ public class LoginUserTest extends BaseTest {
                 .build();
     }
 
-
     @Test
     public void adminCanGenerateAuthTokenTest() {
         LoginUserRequest request = LoginUserRequest.builder()

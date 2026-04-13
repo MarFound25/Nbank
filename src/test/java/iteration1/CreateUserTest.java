@@ -13,9 +13,8 @@ import requests.*;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 
+import java.util.List;
 import java.util.stream.Stream;
-
-import static org.hamcrest.Matchers.notNullValue;
 
 public class CreateUserTest extends BaseTest {
 
@@ -224,11 +223,14 @@ public class CreateUserTest extends BaseTest {
                 ResponseSpecs.entityWasCreated())
                 .post(request);
 
-        new AdminGetAllUsersRequester(
+        List<CreateUserResponse> users = new AdminGetAllUsersRequester(
                 RequestSpecs.adminSpec(),
                 ResponseSpecs.requestReturnsOK())
-                .get()
-                .body("find { it.username == '" + request.getUsername() + "' }", notNullValue());
+                .getAllUsers();
+
+        softly.assertThat(users)
+                .extracting(CreateUserResponse::getUsername)
+                .contains(request.getUsername());
     }
 
     @Test
@@ -244,15 +246,12 @@ public class CreateUserTest extends BaseTest {
                 ResponseSpecs.entityWasCreated())
                 .post(createRequest);
 
-
         LoginUserRequest loginRequest = toLoginRequest(createRequest);
 
         String authToken = new LoginUserRequester(
                 RequestSpecs.unauthSpec(),
                 ResponseSpecs.requestReturnsOK())
-                .post(loginRequest)
-                .extract()
-                .header("Authorization");
+                .getToken(loginRequest);
 
         new AdminGetAllUsersRequester(
                 RequestSpecs.authWithBearerToken(authToken),
@@ -269,13 +268,14 @@ public class CreateUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        Integer userId = new AdminCreateUserRequester(
+        CreateUserResponse response = new AdminCreateUserRequester(
                 RequestSpecs.adminSpec(),
                 ResponseSpecs.entityWasCreated())
                 .post(request)
                 .extract()
-                .jsonPath()
-                .getInt("id");
+                .as(CreateUserResponse.class);
+
+        Integer userId = (int) response.getId();
 
         new AdminDeleteUserRequester(
                 RequestSpecs.adminSpec(),
@@ -316,9 +316,7 @@ public class CreateUserTest extends BaseTest {
         String authToken = new LoginUserRequester(
                 RequestSpecs.unauthSpec(),
                 ResponseSpecs.requestReturnsOK())
-                .post(loginRequest)
-                .extract()
-                .header("Authorization");
+                .getToken(loginRequest);
 
         new AdminDeleteUserRequester(
                 RequestSpecs.authWithBearerToken(authToken),

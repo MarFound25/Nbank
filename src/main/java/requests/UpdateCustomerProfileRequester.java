@@ -4,6 +4,7 @@ import io.restassured.response.ValidatableResponse;
 import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
 import models.UpdateProfileRequest;
+import models.UpdateProfileResponse;
 
 import static io.restassured.RestAssured.given;
 
@@ -25,5 +26,11 @@ public class UpdateCustomerProfileRequester {
                 .put("/api/v1/customer/profile")
                 .then()
                 .spec(responseSpec);
+    }
+
+    public UpdateProfileResponse updateProfile(UpdateProfileRequest request) {
+        return put(request)
+                .extract()
+                .as(UpdateProfileResponse.class);
     }
 }
