@@ -3,12 +3,12 @@ package iteration1;
 import generators.RandomData;
 import models.*;
 import org.apache.http.HttpStatus;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import requests.*;
+import requests.steps.AdminSteps;
+import requests.steps.UserSteps;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 
@@ -16,39 +16,51 @@ import java.util.stream.Stream;
 
 public class ProfileTest extends BaseTest {
 
-
     private String createUserAndGetAuth(String name) {
+        String username = RandomData.getUsername();
+        String password = RandomData.getPassword();
+
         CreateUserRequest createRequest = CreateUserRequest.builder()
-                .username(RandomData.getUsername())
-                .password(RandomData.getPassword())
+                .username(username)
+                .password(password)
                 .name(name)
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(createRequest);
+        AdminSteps.createUser(createRequest);
+        return UserSteps.loginAndGetToken(username, password);
+    }
 
-        LoginUserRequest loginRequest = LoginUserRequest.builder()
-                .username(createRequest.getUsername())
-                .password(createRequest.getPassword())
+    private ProfileResponse getProfile(String token) {
+        return new requests.skelethon.requesters.CrudRequesters(
+                RequestSpecs.authWithToken(token),
+                ResponseSpecs.requestReturnsOK())
+                .getWithValidation(endpoints.Endpoint.CUSTOMER_PROFILE)
+                .extract()
+                .as(ProfileResponse.class);
+    }
+
+    private void updateUserName(String token, String newName) {
+        UpdateProfileRequest updateRequest = UpdateProfileRequest.builder()
+                .name(newName)
                 .build();
 
-        return new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
+        new requests.skelethon.requesters.CrudRequesters(
+                RequestSpecs.authWithToken(token),
                 ResponseSpecs.requestReturnsOK())
-                .getToken(loginRequest);
+                .putWithValidation(endpoints.Endpoint.CUSTOMER_PROFILE, updateRequest);
     }
 
-    private String getUserName(String authToken) {
-        ProfileResponse profile = new GetCustomerProfileRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getProfile();
-        return profile.getName();
-    }
+    private void updateUserNameAndExpectBadRequest(String token, String invalidName) {
+        UpdateProfileRequest updateRequest = UpdateProfileRequest.builder()
+                .name(invalidName)
+                .build();
 
+        new requests.skelethon.requesters.CrudRequesters(
+                RequestSpecs.authWithToken(token),
+                ResponseSpecs.requestReturnsBadRequest())
+                .putWithValidation(endpoints.Endpoint.CUSTOMER_PROFILE, updateRequest);
+    }
 
     private static Stream<Arguments> provideValidNameData() {
         return Stream.of(
@@ -63,26 +75,16 @@ public class ProfileTest extends BaseTest {
     @ParameterizedTest
     @MethodSource("provideValidNameData")
     public void userCanChangeNameWithValidDataTest(String oldName, String newName) {
-        String authToken = createUserAndGetAuth(oldName);
+        String token = createUserAndGetAuth(oldName);
 
-        String currentName = getUserName(authToken);
-        softly.assertThat(currentName).isEqualTo(oldName);
+        ProfileResponse profileBefore = getProfile(token);
+        softly.assertThat(profileBefore.getName()).isEqualTo(oldName);
 
-        UpdateProfileRequest updateRequest = UpdateProfileRequest.builder()
-                .name(newName)
-                .build();
+        updateUserName(token, newName);
 
-        UpdateProfileResponse response = new UpdateCustomerProfileRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .updateProfile(updateRequest);
-
-        softly.assertThat(response.getCustomer().getName()).isEqualTo(newName);
-
-        String updatedName = getUserName(authToken);
-        softly.assertThat(updatedName).isEqualTo(newName);
+        ProfileResponse profileAfter = getProfile(token);
+        softly.assertThat(profileAfter.getName()).isEqualTo(newName);
     }
-
 
     private static Stream<Arguments> provideInvalidNameData() {
         return Stream.of(
@@ -99,24 +101,16 @@ public class ProfileTest extends BaseTest {
     @ParameterizedTest
     @MethodSource("provideInvalidNameData")
     public void userCannotChangeNameWithInvalidDataTest(String oldName, String invalidName) {
-        String authToken = createUserAndGetAuth(oldName);
+        String token = createUserAndGetAuth(oldName);
 
-        String currentName = getUserName(authToken);
-        softly.assertThat(currentName).isEqualTo(oldName);
+        ProfileResponse profileBefore = getProfile(token);
+        softly.assertThat(profileBefore.getName()).isEqualTo(oldName);
 
-        UpdateProfileRequest updateRequest = UpdateProfileRequest.builder()
-                .name(invalidName)
-                .build();
+        updateUserNameAndExpectBadRequest(token, invalidName);
 
-        new UpdateCustomerProfileRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsBadRequest())
-                .put(updateRequest);
-
-        String unchangedName = getUserName(authToken);
-        softly.assertThat(unchangedName).isEqualTo(oldName);
+        ProfileResponse profileAfter = getProfile(token);
+        softly.assertThat(profileAfter.getName()).isEqualTo(oldName);
     }
-
 
     private static Stream<Arguments> provideUnauthorizedData() {
         return Stream.of(
@@ -133,39 +127,37 @@ public class ProfileTest extends BaseTest {
                 .name("New Name")
                 .build();
 
-        new UpdateCustomerProfileRequester(
+        new requests.skelethon.requesters.CrudRequesters(
                 RequestSpecs.customAuth(authHeader),
                 ResponseSpecs.custom(expectedStatusCode))
-                .put(updateRequest);
+                .putWithValidation(endpoints.Endpoint.CUSTOMER_PROFILE, updateRequest);
     }
-
 
     @Test
     public void userCanGetOwnProfileTest() {
         String expectedName = "John Doe";
-        String authToken = createUserAndGetAuth(expectedName);
+        String token = createUserAndGetAuth(expectedName);
 
-        new GetCustomerProfileRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .get()
-                .body("name", Matchers.equalTo(expectedName))
-                .body("username", Matchers.notNullValue());
+        ProfileResponse profile = getProfile(token);
+
+        softly.assertThat(profile.getName()).isEqualTo(expectedName);
+        softly.assertThat(profile.getUsername()).isNotNull();
+        softly.assertThat(profile.getId()).isNotNull();
     }
 
     @Test
     public void userCannotGetProfileWithoutAuthTest() {
-        new GetCustomerProfileRequester(
+        new requests.skelethon.requesters.CrudRequesters(
                 RequestSpecs.noAuthSpec(),
                 ResponseSpecs.requestReturnsUnauthorized())
-                .get();
+                .getWithValidation(endpoints.Endpoint.CUSTOMER_PROFILE);
     }
 
     @Test
     public void userCannotGetProfileWithInvalidTokenTest() {
-        new GetCustomerProfileRequester(
-                RequestSpecs.authWithBearerToken("invalid.token.here"),
+        new requests.skelethon.requesters.CrudRequesters(
+                RequestSpecs.authWithToken("invalid.token.here"),
                 ResponseSpecs.requestReturnsUnauthorized())
-                .get();
+                .getWithValidation(endpoints.Endpoint.CUSTOMER_PROFILE);
     }
 }

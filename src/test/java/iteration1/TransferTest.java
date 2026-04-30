@@ -7,7 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import requests.*;
+import requests.steps.AdminSteps;
+import requests.steps.UserSteps;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 
@@ -18,13 +19,6 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.within;
 
 public class TransferTest extends BaseTest {
-
-    private LoginUserRequest toLoginRequest(CreateUserRequest createRequest) {
-        return LoginUserRequest.builder()
-                .username(createRequest.getUsername())
-                .password(createRequest.getPassword())
-                .build();
-    }
 
     private String createUserAndGetAuth(String prefix) {
         String uniqueSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 6);
@@ -37,85 +31,57 @@ public class TransferTest extends BaseTest {
         CreateUserRequest createRequest = CreateUserRequest.builder()
                 .username(username)
                 .password(RandomData.getPassword())
+                .name("Test User")
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(createRequest);
-
-        LoginUserRequest loginRequest = toLoginRequest(createRequest);
-
-        return new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsOK())
-                .getToken(loginRequest);
+        AdminSteps.createUser(createRequest);
+        return UserSteps.loginAndGetToken(createRequest.getUsername(), createRequest.getPassword());
     }
 
+    private double getAccountBalance(String token, long accountId) {
+        List<Account> accounts = UserSteps.getAccounts(token);
+        return accounts.stream()
+                .filter(a -> a.getId() == accountId)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Account not found: " + accountId))
+                .getBalance();
+    }
+
+    private void transfer(String token, int fromAccount, int toAccount, double amount) {
+        new requests.skelethon.requesters.CrudRequesters(
+                RequestSpecs.authWithToken(token),
+                ResponseSpecs.requestReturnsOK())
+                .create(endpoints.Endpoint.ACCOUNTS_TRANSFER, new TransferRequest(fromAccount, toAccount, amount));
+    }
+
+    private void transferAndExpectError(String token, int fromAccount, int toAccount, double amount, int expectedStatusCode) {
+        new requests.skelethon.requesters.CrudRequesters(
+                RequestSpecs.authWithToken(token),
+                ResponseSpecs.custom(expectedStatusCode))
+                .create(endpoints.Endpoint.ACCOUNTS_TRANSFER, new TransferRequest(fromAccount, toAccount, amount));
+    }
 
     @ParameterizedTest
     @MethodSource("provideValidTransferData")
     public void userCanTransferValidAmountsTest(double depositAmount, double transferAmount) {
-        String authToken = createUserAndGetAuth("Tr");
+        String token = createUserAndGetAuth("Tr");
 
-        CreateAccountResponse fromAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        int fromAccount = UserSteps.createAccount(token);
+        int toAccount = UserSteps.createAccount(token);
 
-        CreateAccountResponse toAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        UserSteps.deposit(token, fromAccount, depositAmount);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), depositAmount);
+        double fromInitialBalance = getAccountBalance(token, fromAccount);
+        double toInitialBalance = getAccountBalance(token, toAccount);
 
-        List<Account> accountsAfterDeposit = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
+        transfer(token, fromAccount, toAccount, transferAmount);
 
-        Account fromAccountData = accountsAfterDeposit.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
+        double fromFinalBalance = getAccountBalance(token, fromAccount);
+        double toFinalBalance = getAccountBalance(token, toAccount);
 
-        Account toAccountData = accountsAfterDeposit.stream()
-                .filter(a -> a.getId().equals(toAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        double fromInitialBalance = fromAccountData.getBalance();
-        double toInitialBalance = toAccountData.getBalance();
-
-        new TransferRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), toAccount.getId(), transferAmount);
-
-        List<Account> accountsAfterTransfer = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account fromAccountAfter = accountsAfterTransfer.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        Account toAccountAfter = accountsAfterTransfer.stream()
-                .filter(a -> a.getId().equals(toAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        softly.assertThat(fromAccountAfter.getBalance())
-                .isCloseTo(fromInitialBalance - transferAmount, within(0.01));
-        softly.assertThat(toAccountAfter.getBalance())
-                .isCloseTo(toInitialBalance + transferAmount, within(0.01));
+        softly.assertThat(fromFinalBalance).isCloseTo(fromInitialBalance - transferAmount, within(0.01));
+        softly.assertThat(toFinalBalance).isCloseTo(toInitialBalance + transferAmount, within(0.01));
     }
 
     private static Stream<Arguments> provideValidTransferData() {
@@ -130,76 +96,24 @@ public class TransferTest extends BaseTest {
     @ParameterizedTest
     @MethodSource("provideValidTransferToAnotherUserData")
     public void userCanTransferToAnotherUserTest(double depositAmount, double transferAmount) {
-        String user1Auth = createUserAndGetAuth("Sd");
-        String user2Auth = createUserAndGetAuth("Rc");
+        String user1Token = createUserAndGetAuth("Sd");
+        String user2Token = createUserAndGetAuth("Rc");
 
-        CreateAccountResponse fromAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(user1Auth),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        int fromAccount = UserSteps.createAccount(user1Token);
+        int toAccount = UserSteps.createAccount(user2Token);
 
-        CreateAccountResponse toAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(user2Auth),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        UserSteps.deposit(user1Token, fromAccount, depositAmount);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(user1Auth),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), depositAmount);
+        double fromInitialBalance = getAccountBalance(user1Token, fromAccount);
+        double toInitialBalance = getAccountBalance(user2Token, toAccount);
 
-        List<Account> user1Accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(user1Auth),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
+        transfer(user1Token, fromAccount, toAccount, transferAmount);
 
-        Account fromAccountData = user1Accounts.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
+        double fromFinalBalance = getAccountBalance(user1Token, fromAccount);
+        double toFinalBalance = getAccountBalance(user2Token, toAccount);
 
-        List<Account> user2Accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(user2Auth),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account toAccountData = user2Accounts.stream()
-                .filter(a -> a.getId().equals(toAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        double fromInitialBalance = fromAccountData.getBalance();
-        double toInitialBalance = toAccountData.getBalance();
-
-        new TransferRequester(
-                RequestSpecs.authWithBearerToken(user1Auth),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), toAccount.getId(), transferAmount);
-
-        List<Account> user1AccountsAfter = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(user1Auth),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        List<Account> user2AccountsAfter = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(user2Auth),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account fromAccountAfter = user1AccountsAfter.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        Account toAccountAfter = user2AccountsAfter.stream()
-                .filter(a -> a.getId().equals(toAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        softly.assertThat(fromAccountAfter.getBalance())
-                .isCloseTo(fromInitialBalance - transferAmount, within(0.01));
-        softly.assertThat(toAccountAfter.getBalance())
-                .isCloseTo(toInitialBalance + transferAmount, within(0.01));
+        softly.assertThat(fromFinalBalance).isCloseTo(fromInitialBalance - transferAmount, within(0.01));
+        softly.assertThat(toFinalBalance).isCloseTo(toInitialBalance + transferAmount, within(0.01));
     }
 
     private static Stream<Arguments> provideValidTransferToAnotherUserData() {
@@ -212,311 +126,119 @@ public class TransferTest extends BaseTest {
 
     @ParameterizedTest
     @MethodSource("provideInvalidTransferData")
-    public void userCannotMakeInvalidTransferTest(double amount, String accountType, int expectedStatusCode) {
-        String authToken = createUserAndGetAuth("TN");
+    public void userCannotTransferInvalidAmountsTest(double amount, int expectedStatusCode) {
+        String token = createUserAndGetAuth("TN");
 
-        CreateAccountResponse fromAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        int fromAccount = UserSteps.createAccount(token);
+        int toAccount = UserSteps.createAccount(token);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), 1000.0);
+        UserSteps.deposit(token, fromAccount, 1000.0);
 
-        List<Account> accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
+        double fromInitialBalance = getAccountBalance(token, fromAccount);
+        double toInitialBalance = getAccountBalance(token, toAccount);
 
-        Account fromAccountData = accounts.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
+        transferAndExpectError(token, fromAccount, toAccount, amount, expectedStatusCode);
 
-        double fromInitialBalance = fromAccountData.getBalance();
+        double fromFinalBalance = getAccountBalance(token, fromAccount);
+        double toFinalBalance = getAccountBalance(token, toAccount);
 
-        Integer targetAccountId;
-        double toInitialBalance = 0.0;
-        String targetAuthToken = null;
-
-        switch (accountType) {
-            case "valid":
-                CreateAccountResponse targetAccount = new CreateAccountRequester(
-                        RequestSpecs.authWithBearerToken(authToken),
-                        ResponseSpecs.entityWasCreated())
-                        .createAccount();
-                targetAccountId = targetAccount.getId();
-                toInitialBalance = targetAccount.getBalance();
-                targetAuthToken = authToken;
-                break;
-            case "non-existent-acc":
-                targetAccountId = 999999;
-                break;
-            default:
-                targetAccountId = fromAccount.getId();
-        }
-
-        new TransferRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.custom(expectedStatusCode))
-                .post(fromAccount.getId(), targetAccountId, amount);
-
-        List<Account> accountsAfter = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account fromAccountAfter = accountsAfter.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        softly.assertThat(fromAccountAfter.getBalance()).isEqualTo(fromInitialBalance);
-
-        if ("valid".equals(accountType)) {
-            List<Account> targetAccounts = new GetCustomerAccountsRequester(
-                    RequestSpecs.authWithBearerToken(targetAuthToken),
-                    ResponseSpecs.requestReturnsOK())
-                    .getAccounts();
-
-            Account targetAccountAfter = targetAccounts.stream()
-                    .filter(a -> a.getId().equals(targetAccountId))
-                    .findFirst()
-                    .orElseThrow();
-
-            softly.assertThat(targetAccountAfter.getBalance()).isEqualTo(toInitialBalance);
-        }
+        softly.assertThat(fromFinalBalance).isEqualTo(fromInitialBalance);
+        softly.assertThat(toFinalBalance).isEqualTo(toInitialBalance);
     }
 
     private static Stream<Arguments> provideInvalidTransferData() {
         return Stream.of(
-                Arguments.of(-50.0, "valid", HttpStatus.SC_BAD_REQUEST),
-                Arguments.of(0.0, "valid", HttpStatus.SC_BAD_REQUEST),
-                Arguments.of(10001.0, "valid", HttpStatus.SC_BAD_REQUEST),
-                Arguments.of(999999.0, "valid", HttpStatus.SC_BAD_REQUEST),
-                Arguments.of(100.0, "non-existent-acc", HttpStatus.SC_BAD_REQUEST)
+                Arguments.of(-50.0, HttpStatus.SC_BAD_REQUEST),
+                Arguments.of(0.0, HttpStatus.SC_BAD_REQUEST),
+                Arguments.of(10001.0, HttpStatus.SC_BAD_REQUEST),
+                Arguments.of(999999.0, HttpStatus.SC_BAD_REQUEST)
         );
     }
 
+    @Test
+    public void userCannotTransferToNonExistentAccountTest() {
+        String token = createUserAndGetAuth("TN");
+
+        int fromAccount = UserSteps.createAccount(token);
+        int nonExistentAccount = 999999;
+
+        UserSteps.deposit(token, fromAccount, 1000.0);
+
+        double fromInitialBalance = getAccountBalance(token, fromAccount);
+
+        transferAndExpectError(token, fromAccount, nonExistentAccount, 100.0, HttpStatus.SC_BAD_REQUEST);
+
+        double fromFinalBalance = getAccountBalance(token, fromAccount);
+        softly.assertThat(fromFinalBalance).isEqualTo(fromInitialBalance);
+    }
 
     @Test
     public void userCannotTransferFromAnotherUsersAccountTest() {
-        String user1Auth = createUserAndGetAuth("U1");
-        String user2Auth = createUserAndGetAuth("U2");
+        String user1Token = createUserAndGetAuth("U1");
+        String user2Token = createUserAndGetAuth("U2");
 
-        CreateAccountResponse user1Account = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(user1Auth),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        int user1Account = UserSteps.createAccount(user1Token);
+        int user2Account = UserSteps.createAccount(user2Token);
 
-        CreateAccountResponse user2Account = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(user2Auth),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        UserSteps.deposit(user1Token, user1Account, 1000.0);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(user1Auth),
-                ResponseSpecs.requestReturnsOK())
-                .post(user1Account.getId(), 1000.0);
+        double user1InitialBalance = getAccountBalance(user1Token, user1Account);
+        double user2InitialBalance = getAccountBalance(user2Token, user2Account);
 
-        List<Account> user1Accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(user1Auth),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
+        transferAndExpectError(user2Token, user1Account, user2Account, 100.00, HttpStatus.SC_FORBIDDEN);
 
-        List<Account> user2Accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(user2Auth),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
+        double user1FinalBalance = getAccountBalance(user1Token, user1Account);
+        double user2FinalBalance = getAccountBalance(user2Token, user2Account);
 
-        Account user1AccountData = user1Accounts.stream()
-                .filter(a -> a.getId().equals(user1Account.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        Account user2AccountData = user2Accounts.stream()
-                .filter(a -> a.getId().equals(user2Account.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        double user1InitialBalance = user1AccountData.getBalance();
-        double user2InitialBalance = user2AccountData.getBalance();
-
-        new TransferRequester(
-                RequestSpecs.authWithBearerToken(user2Auth),
-                ResponseSpecs.requestReturnsForbidden())
-                .post(user1Account.getId(), user2Account.getId(), 100.00);
-
-        List<Account> user1AccountsAfter = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(user1Auth),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        List<Account> user2AccountsAfter = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(user2Auth),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account user1AccountAfter = user1AccountsAfter.stream()
-                .filter(a -> a.getId().equals(user1Account.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        Account user2AccountAfter = user2AccountsAfter.stream()
-                .filter(a -> a.getId().equals(user2Account.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        softly.assertThat(user1AccountAfter.getBalance()).isEqualTo(user1InitialBalance);
-        softly.assertThat(user2AccountAfter.getBalance()).isEqualTo(user2InitialBalance);
+        softly.assertThat(user1FinalBalance).isEqualTo(user1InitialBalance);
+        softly.assertThat(user2FinalBalance).isEqualTo(user2InitialBalance);
     }
 
     @Test
     public void userCanTransferMaxLimitAmountTest() {
-        String authToken = createUserAndGetAuth("Tr");
+        String token = createUserAndGetAuth("Tr");
 
-        CreateAccountResponse fromAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        int fromAccount = UserSteps.createAccount(token);
+        int toAccount = UserSteps.createAccount(token);
 
-        CreateAccountResponse toAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        UserSteps.deposit(token, fromAccount, 5000.00);
+        UserSteps.deposit(token, fromAccount, 5000.00);
+        UserSteps.deposit(token, fromAccount, 5000.00);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), 5000.00);
+        double fromInitialBalance = getAccountBalance(token, fromAccount);
+        double toInitialBalance = getAccountBalance(token, toAccount);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), 5000.00);
+        transfer(token, fromAccount, toAccount, 10000.00);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), 5000.00);
+        double fromFinalBalance = getAccountBalance(token, fromAccount);
+        double toFinalBalance = getAccountBalance(token, toAccount);
 
-        List<Account> accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account fromAccountData = accounts.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        Account toAccountData = accounts.stream()
-                .filter(a -> a.getId().equals(toAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        double fromInitialBalance = fromAccountData.getBalance();
-        double toInitialBalance = toAccountData.getBalance();
-
-        new TransferRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), toAccount.getId(), 10000.00);
-
-        List<Account> accountsAfter = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account fromAccountAfter = accountsAfter.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        Account toAccountAfter = accountsAfter.stream()
-                .filter(a -> a.getId().equals(toAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        softly.assertThat(fromAccountAfter.getBalance())
-                .isCloseTo(fromInitialBalance - 10000.0, within(0.01));
-        softly.assertThat(toAccountAfter.getBalance())
-                .isCloseTo(toInitialBalance + 10000.0, within(0.01));
+        softly.assertThat(fromFinalBalance).isCloseTo(fromInitialBalance - 10000.0, within(0.01));
+        softly.assertThat(toFinalBalance).isCloseTo(toInitialBalance + 10000.0, within(0.01));
     }
 
     @Test
     public void userCannotTransferAboveLimitTest() {
-        String authToken = createUserAndGetAuth("Tr");
+        String token = createUserAndGetAuth("Tr");
 
-        CreateAccountResponse fromAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        int fromAccount = UserSteps.createAccount(token);
+        int toAccount = UserSteps.createAccount(token);
 
-        CreateAccountResponse toAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        UserSteps.deposit(token, fromAccount, 5000.00);
+        UserSteps.deposit(token, fromAccount, 5000.00);
+        UserSteps.deposit(token, fromAccount, 5000.00);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), 5000.00);
+        double fromInitialBalance = getAccountBalance(token, fromAccount);
+        double toInitialBalance = getAccountBalance(token, toAccount);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), 5000.00);
+        transferAndExpectError(token, fromAccount, toAccount, 10000.01, HttpStatus.SC_BAD_REQUEST);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(fromAccount.getId(), 5000.00);
+        double fromFinalBalance = getAccountBalance(token, fromAccount);
+        double toFinalBalance = getAccountBalance(token, toAccount);
 
-        List<Account> accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account fromAccountData = accounts.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        Account toAccountData = accounts.stream()
-                .filter(a -> a.getId().equals(toAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        double fromInitialBalance = fromAccountData.getBalance();
-        double toInitialBalance = toAccountData.getBalance();
-
-        new TransferRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsBadRequest())
-                .post(fromAccount.getId(), toAccount.getId(), 10000.01);
-
-        List<Account> accountsAfter = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account fromAccountAfter = accountsAfter.stream()
-                .filter(a -> a.getId().equals(fromAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        Account toAccountAfter = accountsAfter.stream()
-                .filter(a -> a.getId().equals(toAccount.getId()))
-                .findFirst()
-                .orElseThrow();
-
-        softly.assertThat(fromAccountAfter.getBalance()).isEqualTo(fromInitialBalance);
-        softly.assertThat(toAccountAfter.getBalance()).isEqualTo(toInitialBalance);
+        softly.assertThat(fromFinalBalance).isEqualTo(fromInitialBalance);
+        softly.assertThat(toFinalBalance).isEqualTo(toInitialBalance);
     }
-
 
     private static Stream<Arguments> provideUnauthorizedData() {
         return Stream.of(
@@ -529,9 +251,9 @@ public class TransferTest extends BaseTest {
     @ParameterizedTest
     @MethodSource("provideUnauthorizedData")
     public void userCannotTransferWithoutAuthTest(String authHeader, int expectedStatusCode) {
-        new TransferRequester(
+        new requests.skelethon.requesters.CrudRequesters(
                 RequestSpecs.customAuth(authHeader),
                 ResponseSpecs.custom(expectedStatusCode))
-                .post(1, 2, 100.00);
+                .create(endpoints.Endpoint.ACCOUNTS_TRANSFER, new TransferRequest(1, 2, 100.00));
     }
 }

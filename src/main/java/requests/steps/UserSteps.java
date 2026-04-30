@@ -1,0 +1,200 @@
+package requests.steps;
+
+import endpoints.Endpoint;
+import models.Account;
+import models.LoginUserRequest;
+import models.Transaction;
+import requests.skelethon.requesters.CrudRequesters;
+import specs.RequestSpecs;
+import specs.ResponseSpecs;
+
+import java.util.List;
+import java.util.Locale;
+
+import static io.restassured.RestAssured.given;
+
+public class UserSteps {
+
+    public static String loginAndGetToken(String username, String password) {
+        LoginUserRequest loginRequest = LoginUserRequest.builder()
+                .username(username)
+                .password(password)
+                .build();
+
+        return given()
+                .spec(RequestSpecs.unauthSpec())
+                .body(loginRequest)
+                .when()
+                .post(Endpoint.AUTH_LOGIN)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK())
+                .extract()
+                .header("Authorization");
+    }
+
+    public static void loginAndExpectUnauthorized(String username, String password) {
+        LoginUserRequest loginRequest = LoginUserRequest.builder()
+                .username(username)
+                .password(password)
+                .build();
+
+        given()
+                .spec(RequestSpecs.unauthSpec())
+                .body(loginRequest)
+                .when()
+                .post(Endpoint.AUTH_LOGIN)
+                .then()
+                .spec(ResponseSpecs.requestReturnsUnauthorized());
+    }
+
+    public static int createAccount(String token) {
+        return given()
+                .spec(RequestSpecs.authWithToken(token))
+                .when()
+                .post(Endpoint.ACCOUNTS)
+                .then()
+                .spec(ResponseSpecs.entityWasCreated())
+                .extract()
+                .jsonPath()
+                .getInt("id");
+    }
+
+    public static List<Account> getAccounts(String token) {
+        return given()
+                .spec(RequestSpecs.authWithToken(token))
+                .when()
+                .get(Endpoint.CUSTOMER_ACCOUNTS)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK())
+                .extract()
+                .jsonPath()
+                .getList("", Account.class);
+    }
+
+    public static double getAccountBalance(String token, int accountId) {
+        return getAccounts(token).stream()
+                .filter(account -> account.getId() == accountId)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Account not found: " + accountId))
+                .getBalance();
+    }
+
+    public static void deposit(String token, int accountId, double amount) {
+        given()
+                .spec(RequestSpecs.authWithToken(token))
+                .body(String.format(Locale.US, "{\"id\": %d, \"balance\": %.2f}", accountId, amount))
+                .when()
+                .post(Endpoint.ACCOUNTS_DEPOSIT)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK());
+    }
+
+    public static void depositAndExpectBadRequest(String token, int accountId, double amount) {
+        given()
+                .spec(RequestSpecs.authWithToken(token))
+                .body(String.format(Locale.US, "{\"id\": %d, \"balance\": %.2f}", accountId, amount))
+                .when()
+                .post(Endpoint.ACCOUNTS_DEPOSIT)
+                .then()
+                .spec(ResponseSpecs.requestReturnsBadRequest());
+    }
+
+    public static void depositAndExpectForbidden(String token, int accountId, double amount) {
+        given()
+                .spec(RequestSpecs.authWithToken(token))
+                .body(String.format(Locale.US, "{\"id\": %d, \"balance\": %.2f}", accountId, amount))
+                .when()
+                .post(Endpoint.ACCOUNTS_DEPOSIT)
+                .then()
+                .spec(ResponseSpecs.requestReturnsForbidden());
+    }
+
+    public static void depositAndExpectUnauthorized(int accountId, double amount) {
+        given()
+                .spec(RequestSpecs.noAuthSpec())
+                .body(String.format(Locale.US, "{\"id\": %d, \"balance\": %.2f}", accountId, amount))
+                .when()
+                .post(Endpoint.ACCOUNTS_DEPOSIT)
+                .then()
+                .spec(ResponseSpecs.requestReturnsUnauthorized());
+    }
+
+    public static void depositWithInvalidTokenAndExpectUnauthorized(int accountId, double amount) {
+        given()
+                .spec(RequestSpecs.authWithToken("invalid.token.here"))
+                .body(String.format(Locale.US, "{\"id\": %d, \"balance\": %.2f}", accountId, amount))
+                .when()
+                .post(Endpoint.ACCOUNTS_DEPOSIT)
+                .then()
+                .spec(ResponseSpecs.requestReturnsUnauthorized());
+    }
+
+    public static List<Transaction> getTransactions(String token, int accountId) {
+        return given()
+                .spec(RequestSpecs.authWithToken(token))
+                .when()
+                .get(Endpoint.ACCOUNTS_TRANSACTIONS, accountId)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK())
+                .extract()
+                .jsonPath()
+                .getList("", Transaction.class);
+    }
+
+    public static void getTransactionsAndExpectForbidden(String token, int accountId) {
+        given()
+                .spec(RequestSpecs.authWithToken(token))
+                .when()
+                .get(Endpoint.ACCOUNTS_TRANSACTIONS, accountId)
+                .then()
+                .spec(ResponseSpecs.requestReturnsForbidden());
+    }
+
+    public static void getTransactionsAndExpectUnauthorized(int accountId) {
+        given()
+                .spec(RequestSpecs.noAuthSpec())
+                .when()
+                .get(Endpoint.ACCOUNTS_TRANSACTIONS, accountId)
+                .then()
+                .spec(ResponseSpecs.requestReturnsUnauthorized());
+    }
+
+    public static void getTransactionsWithInvalidTokenAndExpectUnauthorized(int accountId) {
+        given()
+                .spec(RequestSpecs.authWithToken("invalid.token.here"))
+                .when()
+                .get(Endpoint.ACCOUNTS_TRANSACTIONS, accountId)
+                .then()
+                .spec(ResponseSpecs.requestReturnsUnauthorized());
+    }
+
+    public static void getTransactionsWithEmptyTokenAndExpectUnauthorized(int accountId) {
+        given()
+                .spec(RequestSpecs.authWithToken(""))
+                .when()
+                .get(Endpoint.ACCOUNTS_TRANSACTIONS, accountId)
+                .then()
+                .spec(ResponseSpecs.requestReturnsUnauthorized());
+    }
+
+    public static void getTransactionsWithInvalidBasicAuthAndExpectUnauthorized(String basicAuth, int accountId) {
+        given()
+                .spec(RequestSpecs.authWithBasic(basicAuth))
+                .when()
+                .get(Endpoint.ACCOUNTS_TRANSACTIONS, accountId)
+                .then()
+                .spec(ResponseSpecs.requestReturnsUnauthorized());
+    }
+
+
+    public static void transfer(String token, int fromAccount, int toAccount, double amount) {
+        given()
+                .spec(RequestSpecs.authWithToken(token))
+                .body(String.format(Locale.US, "{\"senderAccountId\": %d, \"receiverAccountId\": %d, \"amount\": %.2f}",
+                        fromAccount, toAccount, amount))
+                .when()
+                .post(Endpoint.ACCOUNTS_TRANSFER)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK());
+    }
+}

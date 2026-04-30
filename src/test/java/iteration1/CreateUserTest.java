@@ -3,28 +3,21 @@ package iteration1;
 import generators.RandomData;
 import models.CreateUserRequest;
 import models.CreateUserResponse;
-import models.LoginUserRequest;
 import models.UserRole;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import requests.*;
+import requests.skelethon.requesters.CrudRequesters;
+import requests.steps.AdminSteps;
+import requests.steps.UserSteps;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 
-import java.util.List;
 import java.util.stream.Stream;
 
 public class CreateUserTest extends BaseTest {
-
-    private LoginUserRequest toLoginRequest(CreateUserRequest createRequest) {
-        return LoginUserRequest.builder()
-                .username(createRequest.getUsername())
-                .password(createRequest.getPassword())
-                .build();
-    }
-
 
     public static Stream<Arguments> validUserData() {
         return Stream.of(
@@ -45,12 +38,7 @@ public class CreateUserTest extends BaseTest {
                 .role(role)
                 .build();
 
-        CreateUserResponse response = new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(request)
-                .extract()
-                .as(CreateUserResponse.class);
+        CreateUserResponse response = AdminSteps.createUser(request);
 
         softly.assertThat(response.getUsername()).isEqualTo(request.getUsername());
         softly.assertThat(response.getPassword()).isNotEqualTo(request.getPassword());
@@ -67,12 +55,7 @@ public class CreateUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        CreateUserResponse response = new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(request)
-                .extract()
-                .as(CreateUserResponse.class);
+        CreateUserResponse response = AdminSteps.createUser(request);
 
         softly.assertThat(response.getUsername()).isEqualTo(username);
     }
@@ -87,12 +70,7 @@ public class CreateUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        CreateUserResponse response = new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(request)
-                .extract()
-                .as(CreateUserResponse.class);
+        CreateUserResponse response = AdminSteps.createUser(request);
 
         softly.assertThat(response.getUsername()).isEqualTo(username);
     }
@@ -105,73 +83,62 @@ public class CreateUserTest extends BaseTest {
                 .role(UserRole.ADMIN.toString())
                 .build();
 
-        CreateUserResponse response = new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(request)
-                .extract()
-                .as(CreateUserResponse.class);
+        CreateUserResponse response = AdminSteps.createUser(request);
 
         softly.assertThat(response.getRole()).isEqualTo(UserRole.ADMIN.toString());
     }
 
-
     public static Stream<Arguments> invalidUsernameData() {
         return Stream.of(
-                Arguments.of("", RandomData.getPassword(), "USER", "username", "Username cannot be blank"),
-                Arguments.of("ab", RandomData.getPassword(), "USER", "username", "Username must be between 3 and 15 characters"),
-                Arguments.of("abcdefghijklmnop", RandomData.getPassword(), "USER", "username", "Username must be between 3 and 15 characters"),
-                Arguments.of("abc%", RandomData.getPassword(), "USER", "username", "Username must contain only letters, digits, dashes, underscores, and dots"),
-                Arguments.of("john doe", RandomData.getPassword(), "USER", "username", "Username must contain only letters, digits, dashes, underscores, and dots")
+                Arguments.of("", RandomData.getPassword(), "USER", "Username cannot be blank"),
+                Arguments.of("ab", RandomData.getPassword(), "USER", "Username must be between 3 and 15 characters"),
+                Arguments.of("abcdefghijklmnop", RandomData.getPassword(), "USER", "Username must be between 3 and 15 characters"),
+                Arguments.of("abc%", RandomData.getPassword(), "USER", "Username must contain only letters, digits, dashes, underscores, and dots"),
+                Arguments.of("john doe", RandomData.getPassword(), "USER", "Username must contain only letters, digits, dashes, underscores, and dots")
         );
     }
 
     @MethodSource("invalidUsernameData")
     @ParameterizedTest
-    public void adminCannotCreateUserWithInvalidUsername(String username, String password, String role,
-                                                         String errorKey, String errorValue) {
+    public void adminCannotCreateUserWithInvalidUsername(String username, String password, String role, String expectedError) {
         CreateUserRequest request = CreateUserRequest.builder()
                 .username(username)
                 .password(password)
                 .role(role)
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.requestReturnsBadRequest(errorKey, errorValue))
-                .post(request);
+        new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsBadRequest())
+                .create(request)
+                .body("username", Matchers.hasItem(expectedError));
     }
-
 
     public static Stream<Arguments> invalidPasswordData() {
         String expectedMessage = "Password must contain at least one digit, one lower case, one upper case, one special character, no spaces, and be at least 8 characters long";
 
         return Stream.of(
-                Arguments.of("testuser", "", "USER", "password", "Password cannot be blank"),
-                Arguments.of("testuser", "Pass1#", "USER", "password", expectedMessage),
-                Arguments.of("testuser", "password", "USER", "password", expectedMessage),
-                Arguments.of("testuser", "PASSWORD", "USER", "password", expectedMessage),
-                Arguments.of("testuser", "12345678", "USER", "password", expectedMessage),
-                Arguments.of("testuser", "Password", "USER", "password", expectedMessage),
-                Arguments.of("testuser", "Password1", "USER", "password", expectedMessage),
-                Arguments.of("testuser", "Password1# ", "USER", "password", expectedMessage)
+                Arguments.of("", expectedMessage),
+                Arguments.of("Pass1#", expectedMessage),
+                Arguments.of("password", expectedMessage),
+                Arguments.of("PASSWORD", expectedMessage),
+                Arguments.of("12345678", expectedMessage),
+                Arguments.of("Password", expectedMessage),
+                Arguments.of("Password1", expectedMessage),
+                Arguments.of("Password1# ", expectedMessage)
         );
     }
 
     @MethodSource("invalidPasswordData")
     @ParameterizedTest
-    public void adminCannotCreateUserWithInvalidPassword(String username, String password, String role,
-                                                         String errorKey, String errorValue) {
+    public void adminCannotCreateUserWithInvalidPassword(String password, String expectedError) {
         CreateUserRequest request = CreateUserRequest.builder()
                 .username(RandomData.getUsername())
                 .password(password)
-                .role(role)
+                .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.requestReturnsBadRequest(errorKey, errorValue))
-                .post(request);
+        new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsBadRequest())
+                .create(request)
+                .body("password", Matchers.hasItem(expectedError));
     }
 
 
@@ -183,12 +150,8 @@ public class CreateUserTest extends BaseTest {
                 .role("EDITOR")
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.requestReturnsBadRequest())
-                .post(request);
+        AdminSteps.createUserAndExpectBadRequest(request);
     }
-
 
     @Test
     public void adminCannotCreateUserThatAlreadyExistsTest() {
@@ -198,17 +161,11 @@ public class CreateUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(request);
+        AdminSteps.createUser(request);
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.requestReturnsBadRequest("Error: Username '" + request.getUsername() + "' already exists."))
-                .post(request);
+        String expectedError = "Error: Username '" + request.getUsername() + "' already exists.";
+        AdminSteps.createUserAndExpectBadRequest(request, expectedError);
     }
-
 
     @Test
     public void adminCanGetAllUsersTest() {
@@ -218,15 +175,9 @@ public class CreateUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(request);
+        AdminSteps.createUser(request);
 
-        List<CreateUserResponse> users = new AdminGetAllUsersRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.requestReturnsOK())
-                .getAllUsers();
+        var users = AdminSteps.getAllUsers();
 
         softly.assertThat(users)
                 .extracting(CreateUserResponse::getUsername)
@@ -235,30 +186,17 @@ public class CreateUserTest extends BaseTest {
 
     @Test
     public void userCannotGetAllUsersWithBearerTokenTest() {
-        CreateUserRequest createRequest = CreateUserRequest.builder()
+        CreateUserRequest request = CreateUserRequest.builder()
                 .username(RandomData.getUsername())
                 .password(RandomData.getPassword())
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(createRequest);
+        AdminSteps.createUser(request);
+        String token = UserSteps.loginAndGetToken(request.getUsername(), request.getPassword());
 
-        LoginUserRequest loginRequest = toLoginRequest(createRequest);
-
-        String authToken = new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsOK())
-                .getToken(loginRequest);
-
-        new AdminGetAllUsersRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsForbidden())
-                .get();
+        AdminSteps.getAllUsersAndExpectForbidden(token);
     }
-
 
     @Test
     public void adminCanDeleteUserTest() {
@@ -268,34 +206,15 @@ public class CreateUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        CreateUserResponse response = new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(request)
-                .extract()
-                .as(CreateUserResponse.class);
+        CreateUserResponse response = AdminSteps.createUser(request);
+        AdminSteps.deleteUser(response.getId());
 
-        Integer userId = (int) response.getId();
-
-        new AdminDeleteUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.requestReturnsOK())
-                .delete(userId);
-
-        LoginUserRequest loginRequest = toLoginRequest(request);
-
-        new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsUnauthorized())
-                .post(loginRequest);
+        UserSteps.loginAndExpectUnauthorized(request.getUsername(), request.getPassword());
     }
 
     @Test
     public void adminCannotDeleteNonExistentUserTest() {
-        new AdminDeleteUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.requestReturnsNotFound())
-                .delete(999999);
+        AdminSteps.deleteUserAndExpectNotFound(999999);
     }
 
     @Test
@@ -306,21 +225,9 @@ public class CreateUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(request);
+        AdminSteps.createUser(request);
+        String token = UserSteps.loginAndGetToken(request.getUsername(), request.getPassword());
 
-        LoginUserRequest loginRequest = toLoginRequest(request);
-
-        String authToken = new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsOK())
-                .getToken(loginRequest);
-
-        new AdminDeleteUserRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsForbidden())
-                .delete(1);
+        AdminSteps.deleteUserAndExpectForbidden(token, 1);
     }
 }
