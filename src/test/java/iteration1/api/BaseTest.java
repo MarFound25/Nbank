@@ -1,4 +1,4 @@
-package iteration1;
+package iteration1.api;
 
 import io.restassured.RestAssured;
 import io.restassured.filter.log.RequestLoggingFilter;
