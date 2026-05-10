@@ -1,4 +1,4 @@
-package iteration1;
+package iteration1.api;
 import configs.Config;
 import generators.RandomData;
 import models.CreateUserRequest;

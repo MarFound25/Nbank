@@ -3,6 +3,7 @@ package requests.steps;
 import endpoints.Endpoint;
 import models.Account;
 import models.LoginUserRequest;
+import models.ProfileResponse;
 import models.Transaction;
 import requests.skelethon.requesters.CrudRequesters;
 import specs.RequestSpecs;
@@ -77,6 +78,13 @@ public class UserSteps {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Account not found: " + accountId))
                 .getBalance();
+    }
+
+    public static ProfileResponse getProfile(String token) {
+        return new CrudRequesters(RequestSpecs.authWithToken(token), ResponseSpecs.requestReturnsOK())
+                .getWithValidation(endpoints.Endpoint.CUSTOMER_PROFILE)
+                .extract()
+                .as(ProfileResponse.class);
     }
 
     public static void deposit(String token, int accountId, double amount) {
