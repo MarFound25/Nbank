@@ -110,6 +110,9 @@ public class ProfileTest extends BaseTest {
 
         ProfileResponse profileAfter = getProfile(token);
         softly.assertThat(profileAfter.getName()).isEqualTo(oldName);
+
+        softly.assertThat(profileAfter.getId()).isEqualTo(profileBefore.getId());
+        softly.assertThat(profileAfter.getUsername()).isEqualTo(profileBefore.getUsername());
     }
 
     private static Stream<Arguments> provideUnauthorizedData() {

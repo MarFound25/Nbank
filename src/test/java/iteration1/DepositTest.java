@@ -58,7 +58,8 @@ public class DepositTest extends BaseTest {
         double account1InitialBalance = UserSteps.getAccountBalance(token1, account1Id);
 
         String token2 = createUserAndGetToken();
-        UserSteps.depositAndExpectForbidden(token2, account1Id, 100.00);
+        double transferAmount = RandomData.getRandomDouble(0.01, 5000.00);
+        UserSteps.depositAndExpectForbidden(token2, account1Id, transferAmount);
 
         double account1FinalBalance = UserSteps.getAccountBalance(token1, account1Id);
         softly.assertThat(account1FinalBalance).isEqualTo(account1InitialBalance);

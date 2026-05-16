@@ -43,12 +43,8 @@ public class LoginUserTest extends BaseTest {
 
         AdminSteps.createUser(createRequest);
 
-        UserSteps.loginAndExpectUnauthorized(createRequest.getUsername(), "WrongPassword123!");
-    }
-
-    @Test
-    public void userCannotLoginWithNonExistentUsernameTest() {
-        UserSteps.loginAndExpectUnauthorized("nonexistentuser123", "AnyPassword123!");
+        String wrongPassword = RandomData.getPassword() + "wrong";
+        UserSteps.loginAndExpectUnauthorized(createRequest.getUsername(), wrongPassword);
     }
 
     @Test
@@ -72,5 +68,13 @@ public class LoginUserTest extends BaseTest {
     @Test
     public void userCannotLoginWithEmptyCredentialsTest() {
         UserSteps.loginAndExpectUnauthorized("", "");
+    }
+
+    @Test
+    public void userCannotLoginWithNonExistentUsernameTest() {
+        String nonExistentUsername = RandomData.getUsername() + "_nonexistent";
+        String randomPassword = RandomData.getPassword();
+
+        UserSteps.loginAndExpectUnauthorized(nonExistentUsername, randomPassword);
     }
 }

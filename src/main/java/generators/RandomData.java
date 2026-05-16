@@ -85,4 +85,8 @@ public class RandomData {
         }
         return sb.toString();
     }
+
+    public static double getRandomDouble(double min, double max) {
+        return Math.round((min + Math.random() * (max - min)) * 100.0) / 100.0;
+    }
 }
