@@ -1,59 +1,92 @@
 package generators;
 
-import org.apache.commons.lang3.RandomStringUtils;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Random;
 
 public class RandomData {
-    private RandomData() {}
+    private static final Random random = new Random();
+
+    private static final String UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String LOWER = "abcdefghijklmnopqrstuvwxyz";
+    private static final String DIGITS = "0123456789";
+    private static final String SPECIAL = "!@#";
+    private static final String ALL = UPPER + LOWER + DIGITS + SPECIAL;
 
     public static String getUsername() {
-        return RandomStringUtils.randomAlphabetic(10);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 10; i++) {
+            sb.append(LOWER.charAt(random.nextInt(LOWER.length())));
+        }
+        return sb.toString();
     }
 
     public static String getPassword() {
-        String upper = RandomStringUtils.randomAlphabetic(2).toUpperCase();
-        String lower = RandomStringUtils.randomAlphabetic(2).toLowerCase();
-        String digits = RandomStringUtils.randomNumeric(2);
-        String special = RandomStringUtils.random(2, "!@#$%^&");
+        StringBuilder password = new StringBuilder();
 
-        String password = upper + lower + digits + special;
-        return shuffleString(password);
+        password.append(UPPER.charAt(random.nextInt(UPPER.length())));
+        password.append(LOWER.charAt(random.nextInt(LOWER.length())));
+        password.append(DIGITS.charAt(random.nextInt(DIGITS.length())));
+        password.append(SPECIAL.charAt(random.nextInt(SPECIAL.length())));
+
+        int extra = 6;
+        for (int i = 0; i < extra; i++) {
+            password.append(ALL.charAt(random.nextInt(ALL.length())));
+        }
+
+        return shuffleString(password.toString());
     }
 
     private static String shuffleString(String input) {
-        List<Character> chars = input.chars()
-                .mapToObj(c -> (char) c)
-                .collect(Collectors.toList());
-        Collections.shuffle(chars);
-        return chars.stream()
-                .map(String::valueOf)
-                .collect(Collectors.joining());
+        char[] chars = input.toCharArray();
+        for (int i = chars.length - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            char temp = chars[i];
+            chars[i] = chars[j];
+            chars[j] = temp;
+        }
+        return new String(chars);
     }
 
     public static String getUsernameWithDot() {
-        return RandomStringUtils.randomAlphabetic(5) + "." + RandomStringUtils.randomAlphabetic(5);
+        return getRandomString(5) + "." + getRandomString(5);
     }
 
     public static String getUsernameWithDash() {
-        return RandomStringUtils.randomAlphabetic(5) + "-" + RandomStringUtils.randomAlphabetic(5);
+        return getRandomString(5) + "-" + getRandomString(5);
     }
 
     public static String getUsernameWithUnderscore() {
-        return RandomStringUtils.randomAlphabetic(5) + "_" + RandomStringUtils.randomAlphabetic(5);
+        return getRandomString(5) + "_" + getRandomString(5);
     }
 
     public static String getUsernameWithDigits() {
-        return RandomStringUtils.randomAlphabetic(5) + RandomStringUtils.randomNumeric(3);
+        return getRandomString(5) + getRandomDigits(3);
     }
 
     public static String getUsernameMinLength() {
-        return RandomStringUtils.randomAlphabetic(3);
+        return getRandomString(3);
     }
 
     public static String getUsernameMaxLength() {
-        return RandomStringUtils.randomAlphabetic(15);
+        return getRandomString(15);
+    }
+
+    private static String getRandomString(int length) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(LOWER.charAt(random.nextInt(LOWER.length())));
+        }
+        return sb.toString();
+    }
+
+    private static String getRandomDigits(int length) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(DIGITS.charAt(random.nextInt(DIGITS.length())));
+        }
+        return sb.toString();
+    }
+
+    public static double getRandomDouble(double min, double max) {
+        return Math.round((min + Math.random() * (max - min)) * 100.0) / 100.0;
     }
 }

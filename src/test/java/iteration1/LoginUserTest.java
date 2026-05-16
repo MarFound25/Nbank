@@ -1,38 +1,19 @@
 package iteration1;
-
+import configs.Config;
 import generators.RandomData;
 import models.CreateUserRequest;
-import models.LoginUserRequest;
 import models.UserRole;
 import org.junit.jupiter.api.Test;
-import requests.AdminCreateUserRequester;
-import requests.LoginUserRequester;
-import specs.RequestSpecs;
-import specs.ResponseSpecs;
-
-import static org.hamcrest.Matchers.notNullValue;
+import requests.steps.AdminSteps;
+import requests.steps.UserSteps;
 
 public class LoginUserTest extends BaseTest {
 
-    private LoginUserRequest toLoginRequest(CreateUserRequest createRequest) {
-        return LoginUserRequest.builder()
-                .username(createRequest.getUsername())
-                .password(createRequest.getPassword())
-                .build();
-    }
-
     @Test
     public void adminCanGenerateAuthTokenTest() {
-        LoginUserRequest request = LoginUserRequest.builder()
-                .username("admin")
-                .password("admin")
-                .build();
-
-        new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsOK())
-                .post(request)
-                .header("Authorization", notNullValue());
+        String token = UserSteps.loginAndGetToken(Config.getAdminUsername(), Config.getAdminPassword());
+        softly.assertThat(token).isNotNull();
+        softly.assertThat(token).startsWith("Basic ");
     }
 
     @Test
@@ -43,18 +24,12 @@ public class LoginUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(createRequest);
+        AdminSteps.createUser(createRequest);
 
-        LoginUserRequest loginRequest = toLoginRequest(createRequest);
+        String token = UserSteps.loginAndGetToken(createRequest.getUsername(), createRequest.getPassword());
 
-        new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsOK())
-                .post(loginRequest)
-                .header("Authorization", notNullValue());
+        softly.assertThat(token).isNotNull();
+        softly.assertThat(token).startsWith("Basic ");
     }
 
 
@@ -66,46 +41,15 @@ public class LoginUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(createRequest);
+        AdminSteps.createUser(createRequest);
 
-        LoginUserRequest loginRequest = LoginUserRequest.builder()
-                .username(createRequest.getUsername())
-                .password("WrongPassword123!")
-                .build();
-
-        new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsUnauthorized())
-                .post(loginRequest);
-    }
-
-    @Test
-    public void userCannotLoginWithNonExistentUsernameTest() {
-        LoginUserRequest request = LoginUserRequest.builder()
-                .username("nonexistentuser123")
-                .password("AnyPassword123!")
-                .build();
-
-        new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsUnauthorized())
-                .post(request);
+        String wrongPassword = RandomData.getPassword() + "wrong";
+        UserSteps.loginAndExpectUnauthorized(createRequest.getUsername(), wrongPassword);
     }
 
     @Test
     public void userCannotLoginWithEmptyUsernameTest() {
-        LoginUserRequest request = LoginUserRequest.builder()
-                .username("")
-                .password(RandomData.getPassword())
-                .build();
-
-        new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsUnauthorized())
-                .post(request);
+        UserSteps.loginAndExpectUnauthorized("", RandomData.getPassword());
     }
 
     @Test
@@ -116,32 +60,21 @@ public class LoginUserTest extends BaseTest {
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(createRequest);
+        AdminSteps.createUser(createRequest);
 
-        LoginUserRequest loginRequest = LoginUserRequest.builder()
-                .username(createRequest.getUsername())
-                .password("")
-                .build();
-
-        new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsUnauthorized())
-                .post(loginRequest);
+        UserSteps.loginAndExpectUnauthorized(createRequest.getUsername(), "");
     }
 
     @Test
     public void userCannotLoginWithEmptyCredentialsTest() {
-        LoginUserRequest request = LoginUserRequest.builder()
-                .username("")
-                .password("")
-                .build();
+        UserSteps.loginAndExpectUnauthorized("", "");
+    }
 
-        new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsUnauthorized())
-                .post(request);
+    @Test
+    public void userCannotLoginWithNonExistentUsernameTest() {
+        String nonExistentUsername = RandomData.getUsername() + "_nonexistent";
+        String randomPassword = RandomData.getPassword();
+
+        UserSteps.loginAndExpectUnauthorized(nonExistentUsername, randomPassword);
     }
 }

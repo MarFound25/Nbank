@@ -1,204 +1,108 @@
 package iteration1;
 
 import generators.RandomData;
-import models.*;
+import models.CreateUserRequest;
+import models.UserRole;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import requests.*;
-import specs.RequestSpecs;
-import specs.ResponseSpecs;
+import requests.steps.AdminSteps;
+import requests.steps.UserSteps;
 
-import java.util.List;
 import java.util.stream.Stream;
 
 public class DepositTest extends BaseTest {
 
-    private LoginUserRequest toLoginRequest(CreateUserRequest createRequest) {
-        return LoginUserRequest.builder()
-                .username(createRequest.getUsername())
-                .password(createRequest.getPassword())
-                .build();
-    }
-
-    private String createUserAndGetAuth() {
+    private String createUserAndGetToken() {
         CreateUserRequest createRequest = CreateUserRequest.builder()
                 .username(RandomData.getUsername())
                 .password(RandomData.getPassword())
                 .role(UserRole.USER.toString())
                 .build();
 
-        new AdminCreateUserRequester(
-                RequestSpecs.adminSpec(),
-                ResponseSpecs.entityWasCreated())
-                .post(createRequest);
-
-        LoginUserRequest loginRequest = toLoginRequest(createRequest);
-
-        return new LoginUserRequester(
-                RequestSpecs.unauthSpec(),
-                ResponseSpecs.requestReturnsOK())
-                .getToken(loginRequest);
+        AdminSteps.createUser(createRequest);
+        return UserSteps.loginAndGetToken(createRequest.getUsername(), createRequest.getPassword());
     }
 
     @ParameterizedTest
     @MethodSource("provideValidDepositData")
     public void userCanDepositValidAmountsTest(double amount) {
-        String authToken = createUserAndGetAuth();
+        String token = createUserAndGetToken();
+        int accountId = UserSteps.createAccount(token);
 
-        CreateAccountResponse account = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        double initialBalance = UserSteps.getAccountBalance(token, accountId);
+        UserSteps.deposit(token, accountId, amount);
+        double finalBalance = UserSteps.getAccountBalance(token, accountId);
 
-        double initialBalance = account.getBalance();
-
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(account.getId(), amount);
-
-        List<Account> accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account updatedAccount = accounts.stream()
-                .filter(a -> a.getId().equals(account.getId()))
-                .findFirst()
-                .orElse(null);
-
-        softly.assertThat(updatedAccount).isNotNull();
-        softly.assertThat(updatedAccount.getBalance()).isEqualTo(initialBalance + amount);
+        softly.assertThat(finalBalance).isEqualTo(initialBalance + amount);
     }
 
     @ParameterizedTest
     @MethodSource("provideInvalidDepositData")
-    public void userCannotMakeInvalidDepositTest(double amount, String accountType, int expectedStatusCode) {
-        String authToken = createUserAndGetAuth();
+    public void userCannotDepositToOwnAccountWithInvalidAmountTest(double amount) {
+        String token = createUserAndGetToken();
+        int accountId = UserSteps.createAccount(token);
 
-        CreateAccountResponse ownAccount = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        double initialBalance = UserSteps.getAccountBalance(token, accountId);
+        UserSteps.depositAndExpectBadRequest(token, accountId, amount);
+        double finalBalance = UserSteps.getAccountBalance(token, accountId);
 
-        double ownInitialBalance = ownAccount.getBalance();
+        softly.assertThat(finalBalance).isEqualTo(initialBalance);
+    }
 
-        Integer targetAccountId;
-        double targetInitialBalance = 0.0;
-        String targetAuthToken = null;
+    @Test
+    public void userCannotDepositToAnotherUsersAccountTest() {
+        String token1 = createUserAndGetToken();
+        int account1Id = UserSteps.createAccount(token1);
+        double account1InitialBalance = UserSteps.getAccountBalance(token1, account1Id);
 
-        switch (accountType) {
-            case "own":
-                targetAccountId = ownAccount.getId();
-                targetInitialBalance = ownInitialBalance;
-                targetAuthToken = authToken;
-                break;
-            case "someone-elses-acc":
-                targetAuthToken = createUserAndGetAuth();
-                CreateAccountResponse otherAccount = new CreateAccountRequester(
-                        RequestSpecs.authWithBearerToken(targetAuthToken),
-                        ResponseSpecs.entityWasCreated())
-                        .createAccount();
-                targetAccountId = otherAccount.getId();
-                targetInitialBalance = otherAccount.getBalance();
-                break;
-            case "non-existent-acc":
-                targetAccountId = 999999;
-                break;
-            default:
-                targetAccountId = ownAccount.getId();
-        }
+        String token2 = createUserAndGetToken();
+        double transferAmount = RandomData.getRandomDouble(0.01, 5000.00);
+        UserSteps.depositAndExpectForbidden(token2, account1Id, transferAmount);
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.custom(expectedStatusCode))
-                .post(targetAccountId, amount);
+        double account1FinalBalance = UserSteps.getAccountBalance(token1, account1Id);
+        softly.assertThat(account1FinalBalance).isEqualTo(account1InitialBalance);
+    }
 
-        List<Account> accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account ownAccountAfter = accounts.stream()
-                .filter(a -> a.getId().equals(ownAccount.getId()))
-                .findFirst()
-                .orElse(null);
-
-        softly.assertThat(ownAccountAfter.getBalance()).isEqualTo(ownInitialBalance);
-
-        if ("own".equals(accountType) || "someone-elses-acc".equals(accountType)) {
-            List<Account> targetAccounts = new GetCustomerAccountsRequester(
-                    RequestSpecs.authWithBearerToken(targetAuthToken),
-                    ResponseSpecs.requestReturnsOK())
-                    .getAccounts();
-
-            Account targetAccountAfter = targetAccounts.stream()
-                    .filter(a -> a.getId().equals(targetAccountId))
-                    .findFirst()
-                    .orElse(null);
-
-            softly.assertThat(targetAccountAfter.getBalance()).isEqualTo(targetInitialBalance);
-        }
+    @Test
+    public void userCannotDepositToNonExistentAccountTest() {
+        String token = createUserAndGetToken();
+        UserSteps.depositAndExpectForbidden(token, 999999, 100.00);
     }
 
     @Test
     public void userCanDepositMaxLimitAmountTest() {
-        String authToken = createUserAndGetAuth();
+        String token = createUserAndGetToken();
+        int accountId = UserSteps.createAccount(token);
 
-        CreateAccountResponse account = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        double initialBalance = UserSteps.getAccountBalance(token, accountId);
+        UserSteps.deposit(token, accountId, 5000.00);
+        double finalBalance = UserSteps.getAccountBalance(token, accountId);
 
-        double initialBalance = account.getBalance();
-
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .post(account.getId(), 5000.00);
-
-        List<Account> accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account updatedAccount = accounts.stream()
-                .filter(a -> a.getId().equals(account.getId()))
-                .findFirst()
-                .orElse(null);
-
-        softly.assertThat(updatedAccount.getBalance()).isEqualTo(initialBalance + 5000.0);
+        softly.assertThat(finalBalance).isEqualTo(initialBalance + 5000.0);
     }
 
     @Test
     public void userCannotDepositAboveLimitTest() {
-        String authToken = createUserAndGetAuth();
+        String token = createUserAndGetToken();
+        int accountId = UserSteps.createAccount(token);
 
-        CreateAccountResponse account = new CreateAccountRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.entityWasCreated())
-                .createAccount();
+        double initialBalance = UserSteps.getAccountBalance(token, accountId);
+        UserSteps.depositAndExpectBadRequest(token, accountId, 5000.01);
+        double finalBalance = UserSteps.getAccountBalance(token, accountId);
 
-        double initialBalance = account.getBalance();
+        softly.assertThat(finalBalance).isEqualTo(initialBalance);
+    }
 
-        new DepositRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsBadRequest())
-                .post(account.getId(), 5000.01);
+    @Test
+    public void userCannotDepositWithoutAuthTest() {
+        UserSteps.depositAndExpectUnauthorized(1, 100.00);
+    }
 
-        List<Account> accounts = new GetCustomerAccountsRequester(
-                RequestSpecs.authWithBearerToken(authToken),
-                ResponseSpecs.requestReturnsOK())
-                .getAccounts();
-
-        Account updatedAccount = accounts.stream()
-                .filter(a -> a.getId().equals(account.getId()))
-                .findFirst()
-                .orElse(null);
-
-        softly.assertThat(updatedAccount.getBalance()).isEqualTo(initialBalance);
+    @Test
+    public void userCannotDepositWithInvalidTokenTest() {
+        UserSteps.depositWithInvalidTokenAndExpectUnauthorized(1, 100.00);
     }
 
     private static Stream<Arguments> provideValidDepositData() {
@@ -213,11 +117,9 @@ public class DepositTest extends BaseTest {
 
     private static Stream<Arguments> provideInvalidDepositData() {
         return Stream.of(
-                Arguments.of(-100.00, "own", 400),
-                Arguments.of(0.00, "own", 400),
-                Arguments.of(5001.00, "own", 400),
-                Arguments.of(100.00, "someone-elses-acc", 403),
-                Arguments.of(100.00, "non-existent-acc", 403)
+                Arguments.of(-100.00),
+                Arguments.of(0.00),
+                Arguments.of(5001.00)
         );
     }
 }

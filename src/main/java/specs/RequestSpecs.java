@@ -1,50 +1,49 @@
 package specs;
 
+import configs.Config;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 
 public class RequestSpecs {
 
-    private static final String BASE_URL = "http://localhost:4111";
-
     public static RequestSpecification adminSpec() {
         return new RequestSpecBuilder()
-                .setBaseUri(BASE_URL)
+                .setBaseUri(Config.getBaseUrl())
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
-                .addHeader("Authorization", "Basic YWRtaW46YWRtaW4=")
+                .addHeader("Authorization", Config.getAdminBasicAuth())
                 .build();
     }
 
     public static RequestSpecification unauthSpec() {
         return new RequestSpecBuilder()
-                .setBaseUri(BASE_URL)
+                .setBaseUri(Config.getBaseUrl())
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
                 .build();
     }
 
-    public static RequestSpecification noAuthSpec() {
+    public static RequestSpecification authWithToken(String token) {
         return new RequestSpecBuilder()
-                .setBaseUri(BASE_URL)
-                .setContentType(ContentType.JSON)
-                .setAccept(ContentType.JSON)
-                .build();
-    }
-
-    public static RequestSpecification authWithBearerToken(String token) {
-        return new RequestSpecBuilder()
-                .setBaseUri(BASE_URL)
+                .setBaseUri(Config.getBaseUrl())
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
                 .addHeader("Authorization", token)
                 .build();
     }
 
+    public static RequestSpecification noAuthSpec() {
+        return new RequestSpecBuilder()
+                .setBaseUri(Config.getBaseUrl())
+                .setContentType(ContentType.JSON)
+                .setAccept(ContentType.JSON)
+                .build();
+    }
+
     public static RequestSpecification authWithBasic(String basicAuth) {
         return new RequestSpecBuilder()
-                .setBaseUri(BASE_URL)
+                .setBaseUri(Config.getBaseUrl())
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
                 .addHeader("Authorization", "Basic " + basicAuth)
@@ -53,7 +52,7 @@ public class RequestSpecs {
 
     public static RequestSpecification customAuth(String authHeader) {
         return new RequestSpecBuilder()
-                .setBaseUri(BASE_URL)
+                .setBaseUri(Config.getBaseUrl())
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
                 .addHeader("Authorization", authHeader)
