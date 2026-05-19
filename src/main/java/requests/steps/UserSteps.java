@@ -1,11 +1,7 @@
 package requests.steps;
 
 import endpoints.Endpoint;
-import models.Account;
-import models.LoginUserRequest;
-import models.ProfileResponse;
-import models.Transaction;
-import requests.skelethon.requesters.CrudRequesters;
+import models.*;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 
@@ -15,6 +11,25 @@ import java.util.Locale;
 import static io.restassured.RestAssured.given;
 
 public class UserSteps {
+    private String username;
+    private String password;
+
+    public UserSteps(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    public List<CreateAccountResponse> getAllAccounts() {
+        return given()
+                .spec(RequestSpecs.authAsUser(username, password))
+                .when()
+                .get(Endpoint.CUSTOMER_ACCOUNTS)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK())
+                .extract()
+                .jsonPath()
+                .getList("", CreateAccountResponse.class);
+    }
 
     public static String loginAndGetToken(String username, String password) {
         LoginUserRequest loginRequest = LoginUserRequest.builder()
@@ -81,8 +96,12 @@ public class UserSteps {
     }
 
     public static ProfileResponse getProfile(String token) {
-        return new CrudRequesters(RequestSpecs.authWithToken(token), ResponseSpecs.requestReturnsOK())
-                .getWithValidation(endpoints.Endpoint.CUSTOMER_PROFILE)
+        return given()
+                .spec(RequestSpecs.authWithToken(token))
+                .when()
+                .get(Endpoint.CUSTOMER_PROFILE)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK())
                 .extract()
                 .as(ProfileResponse.class);
     }
@@ -193,7 +212,6 @@ public class UserSteps {
                 .then()
                 .spec(ResponseSpecs.requestReturnsUnauthorized());
     }
-
 
     public static void transfer(String token, int fromAccount, int toAccount, double amount) {
         given()

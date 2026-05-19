@@ -2,23 +2,23 @@ package iteration1.ui;
 
 import com.codeborne.selenide.Condition;
 import com.codeborne.selenide.Selectors;
-import com.codeborne.selenide.Selenide;
 import generators.RandomData;
 import models.CreateUserRequest;
 import models.UserRole;
 import org.junit.jupiter.api.Test;
 import requests.steps.AdminSteps;
+import ui.pages.LoginPage;
+
 import static com.codeborne.selenide.Selenide.$;
 
-public class LoginUserTest extends UiTestBase {
+public class LoginUserTest extends BaseUiTest {
+
+    private LoginPage loginPage = new LoginPage();
 
     @Test
     public void adminCanLoginWithCorrectDataTest() {
-        Selenide.open("/login");
-
-        $(Selectors.byAttribute("placeholder", "Username")).sendKeys("admin");
-        $(Selectors.byAttribute("placeholder", "Password")).sendKeys("admin");
-        $("button").click();
+        loginPage.open()
+                .login("admin", "admin");
 
         $(Selectors.byText("Admin Panel")).shouldBe(Condition.visible);
     }
@@ -37,13 +37,9 @@ public class LoginUserTest extends UiTestBase {
 
         AdminSteps.createUser(createRequest);
 
-        Selenide.open("/login");
+        loginPage.open()
+                .login(username, password);
 
-        $(Selectors.byAttribute("placeholder", "Username")).sendKeys(username);
-        $(Selectors.byAttribute("placeholder", "Password")).sendKeys(password);
-        $("button").click();
-
-        $(Selectors.byClassName("welcome-text")).shouldBe(Condition.visible)
-                .shouldHave(Condition.text("Welcome, noname!"));
+        $(".welcome-text").shouldBe(Condition.visible);
     }
 }

@@ -21,4 +21,14 @@ public class Config {
     public static String getAdminBasicAuth() {
         return ADMIN_BASIC_AUTH;
     }
+
+    public static String getProperty(String key) {
+        if ("admin.username".equals(key)) {
+            return "admin";
+        }
+        if ("admin.password".equals(key)) {
+            return "admin";
+        }
+        return null;
+    }
 }
