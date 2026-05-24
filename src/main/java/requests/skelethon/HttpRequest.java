@@ -8,6 +8,7 @@ import static io.restassured.RestAssured.given;
 
 public class HttpRequest {
     protected RequestSpecification requestSpec;
+    protected endpoints.Endpoint endpoint;
 
     public HttpRequest(RequestSpecification requestSpec) {
         this.requestSpec = requestSpec;

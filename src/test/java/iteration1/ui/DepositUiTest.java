@@ -1,25 +1,26 @@
 package iteration1.ui;
 
-import com.codeborne.selenide.Condition;
-import com.codeborne.selenide.Selectors;
-import com.codeborne.selenide.Selenide;
 import generators.RandomData;
 import models.CreateUserRequest;
 import models.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.openqa.selenium.Alert;
 import requests.steps.AdminSteps;
 import requests.steps.UserSteps;
+import ui.pages.BankAlert;
+import ui.pages.UserDashboard;
+import ui.pages.DepositPage;
 
-import static com.codeborne.selenide.Selenide.*;
+import static iteration1.ui.TestData.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class DepositUiTest extends UiTestBase {
+public class DepositUiTest extends BaseUiTest {
 
     private String userToken;
     private int accountId;
     private double initialBalance;
+    private UserDashboard dashboard;
+    private DepositPage depositPage;
 
     @BeforeEach
     public void prepareData() {
@@ -29,7 +30,7 @@ public class DepositUiTest extends UiTestBase {
         CreateUserRequest createUserRequest = CreateUserRequest.builder()
                 .username(username)
                 .password(password)
-                .name("Test User")
+                .name(DEFAULT_USER_NAME)
                 .role(UserRole.USER.toString())
                 .build();
 
@@ -39,61 +40,40 @@ public class DepositUiTest extends UiTestBase {
         accountId = UserSteps.createAccount(userToken);
         initialBalance = UserSteps.getAccountBalance(userToken, accountId);
 
-        Selenide.open("/");
-        executeJavaScript("localStorage.setItem('authToken', arguments[0]);", userToken);
-        Selenide.open("/dashboard");
-    }
+        authThroughLocalStorage(userToken);
 
-    private void makeDeposit(double amount, boolean selectAccount) {
-        $$(".custom-btn.action-btn").first().click();
-
-        if (selectAccount) {
-            $(".account-selector").click();
-            $(".account-selector option").shouldBe(Condition.visible);
-            $(".account-selector").selectOption(1);
-        }
-
-        $(Selectors.byAttribute("placeholder", "Enter amount")).setValue(String.valueOf(amount));
-        $(Selectors.byXpath("//button[contains(text(), 'Deposit')]")).click();
+        dashboard = new UserDashboard();
+        depositPage = new DepositPage();
     }
 
     @Test
     public void userCanDepositValidAmountTest() {
-        double depositAmount = 1000.00;
-
-        makeDeposit(depositAmount, true);
-
-        Alert alert = switchTo().alert();
-        assertThat(alert.getText()).contains("Successfully deposited");
-        alert.accept();
+        dashboard.open();
+        dashboard.openDepositPage();
+        depositPage.makeDeposit(VALID_DEPOSIT_AMOUNT, true, FIRST_ACCOUNT_INDEX);
+        depositPage.checkAlertMessageAndAccept(BankAlert.DEPOSIT_SUCCESSFULLY.getMessage());
 
         double newBalance = UserSteps.getAccountBalance(userToken, accountId);
-        assertThat(newBalance).isEqualTo(initialBalance + depositAmount);
+        assertThat(newBalance).isEqualTo(initialBalance + VALID_DEPOSIT_AMOUNT);
     }
 
     @Test
     public void userCanDepositMaxLimitAmountTest() {
-        double depositAmount = 5000.00;
-
-        makeDeposit(depositAmount, true);
-
-        Alert alert = switchTo().alert();
-        assertThat(alert.getText()).contains("Successfully deposited");
-        alert.accept();
+        dashboard.open();
+        dashboard.openDepositPage();
+        depositPage.makeDeposit(MAX_DEPOSIT_AMOUNT, true, FIRST_ACCOUNT_INDEX);
+        depositPage.checkAlertMessageAndAccept(BankAlert.DEPOSIT_SUCCESSFULLY.getMessage());
 
         double newBalance = UserSteps.getAccountBalance(userToken, accountId);
-        assertThat(newBalance).isEqualTo(initialBalance + depositAmount);
+        assertThat(newBalance).isEqualTo(initialBalance + MAX_DEPOSIT_AMOUNT);
     }
 
     @Test
     public void userCannotDepositAboveLimitTest() {
-        double invalidAmount = 5001.00;
-
-        makeDeposit(invalidAmount, true);
-
-        Alert alert = switchTo().alert();
-        assertThat(alert.getText()).contains("❌ Please deposit less or equal to 5000$.");
-        alert.accept();
+        dashboard.open();
+        dashboard.openDepositPage();
+        depositPage.makeDeposit(INVALID_DEPOSIT_AMOUNT, true, FIRST_ACCOUNT_INDEX);
+        depositPage.checkAlertMessageAndAccept(BankAlert.DEPOSIT_LIMIT_EXCEEDED.getMessage());
 
         double newBalance = UserSteps.getAccountBalance(userToken, accountId);
         assertThat(newBalance).isEqualTo(initialBalance);
@@ -101,11 +81,10 @@ public class DepositUiTest extends UiTestBase {
 
     @Test
     public void userCannotDepositWithoutAccountTest() {
-        makeDeposit(1000.00, false);
-
-        Alert alert = switchTo().alert();
-        assertThat(alert.getText()).contains("select an account");
-        alert.accept();
+        dashboard.open();
+        dashboard.openDepositPage();
+        depositPage.makeDeposit(DEPOSIT_AMOUNT_1000, false, FIRST_ACCOUNT_INDEX);
+        depositPage.checkAlertMessageAndAccept(BankAlert.SELECT_ACCOUNT.getMessage());
 
         double newBalance = UserSteps.getAccountBalance(userToken, accountId);
         assertThat(newBalance).isEqualTo(initialBalance);

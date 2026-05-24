@@ -1,9 +1,8 @@
 package requests.steps;
 
 import endpoints.Endpoint;
-import models.CreateUserRequest;
-import models.CreateUserResponse;
-import models.LoginUserRequest;
+import generators.RandomData;
+import models.*;
 import org.hamcrest.Matchers;
 import requests.skelethon.requesters.CrudRequesters;
 import specs.RequestSpecs;
@@ -41,13 +40,7 @@ public class AdminSteps {
                 .getString("token");
     }
 
-    public static List<CreateUserResponse> getAllUsers() {
-        return new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsOK())
-                .readAll()
-                .extract()
-                .jsonPath()
-                .getList("", CreateUserResponse.class);
-    }
+
 
     public static void getAllUsersAndExpectForbidden(String token) {
         new CrudRequesters(RequestSpecs.authWithToken(token), ResponseSpecs.requestReturnsForbidden())
@@ -115,5 +108,42 @@ public class AdminSteps {
         new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsBadRequest())
                 .create(request)
                 .body("password", Matchers.hasItem(expectedError));
+    }
+
+    public static List<CreateUserResponse> getAllUsers() {
+        return given()
+                .spec(RequestSpecs.adminSpec())
+                .when()
+                .get(Endpoint.ADMIN_USERS)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK())
+                .extract()
+                .jsonPath()
+                .getList("", CreateUserResponse.class);
+    }
+
+    public static CreateUserResponse createUser() {
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .name("Test User")
+                .role(UserRole.USER.toString())
+                .build();
+        return createUser(request);
+    }
+
+    public static UserWithPassword createUserWithPassword() {
+        String rawPassword = RandomData.getPassword();
+        String username = RandomData.getUsername();
+
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(username)
+                .password(rawPassword)
+                .name("Test User")
+                .role(UserRole.USER.toString())
+                .build();
+
+        CreateUserResponse response = createUser(request);
+        return new UserWithPassword(response, rawPassword);
     }
 }
