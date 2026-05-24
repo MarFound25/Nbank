@@ -11,12 +11,13 @@ import requests.steps.UserSteps;
 import ui.pages.ProfilePage;
 import ui.pages.BankAlert;
 
+import static iteration1.ui.TestData.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ProfileUiTest extends BaseUiTest {
 
     private String userToken;
-    private String originalName = "Old Name";
+    private String originalName = ORIGINAL_NAME;
     private ProfilePage profilePage;
 
     @BeforeEach
@@ -40,7 +41,7 @@ public class ProfileUiTest extends BaseUiTest {
 
     @Test
     public void userCanChangeNameValidTest() {
-        String newName = originalName + "a";
+        String newName = originalName + NEW_NAME_SUFFIX;
 
         profilePage.changeName(newName, BankAlert.PROFILE_SUCCESS.getMessage());
 
@@ -50,9 +51,7 @@ public class ProfileUiTest extends BaseUiTest {
 
     @Test
     public void userCannotChangeToSingleWordTest() {
-        String invalidName = "John";
-
-        profilePage.changeName(invalidName, BankAlert.PROFILE_TWO_WORDS.getMessage());
+        profilePage.changeName(INVALID_SINGLE_WORD, BankAlert.PROFILE_TWO_WORDS.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(originalName);
@@ -60,9 +59,7 @@ public class ProfileUiTest extends BaseUiTest {
 
     @Test
     public void userCannotChangeNameWithDigitsTest() {
-        String invalidName = "John 123";
-
-        profilePage.changeName(invalidName, BankAlert.PROFILE_LETTERS_ONLY.getMessage());
+        profilePage.changeName(INVALID_WITH_DIGITS, BankAlert.PROFILE_LETTERS_ONLY.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(originalName);
@@ -70,9 +67,7 @@ public class ProfileUiTest extends BaseUiTest {
 
     @Test
     public void userCannotChangeNameWithSpecialCharsTest() {
-        String invalidName = "John@ Doe";
-
-        profilePage.changeName(invalidName, BankAlert.PROFILE_LETTERS_ONLY.getMessage());
+        profilePage.changeName(INVALID_WITH_SPECIAL, BankAlert.PROFILE_LETTERS_ONLY.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(originalName);
@@ -80,9 +75,7 @@ public class ProfileUiTest extends BaseUiTest {
 
     @Test
     public void userCannotChangeToEmptyNameTest() {
-        String invalidName = "";
-
-        profilePage.changeName(invalidName, BankAlert.PROFILE_SAME_AS_CURRENT.getMessage());
+        profilePage.changeName(EMPTY_STRING, BankAlert.PROFILE_SAME_AS_CURRENT.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(originalName);
@@ -90,11 +83,9 @@ public class ProfileUiTest extends BaseUiTest {
 
     @Test
     public void userNameShouldBeTrimmedTest() {
-        String expectedName = "Anna Smith";
-
-        profilePage.changeName(expectedName, BankAlert.PROFILE_UPDATED_SUCCESSFULLY.getMessage());
+        profilePage.changeName(EXPECTED_TRIMMED_NAME, BankAlert.PROFILE_UPDATED_SUCCESSFULLY.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
-        assertThat(profile.getName()).isEqualTo(expectedName);
+        assertThat(profile.getName()).isEqualTo(EXPECTED_TRIMMED_NAME);
     }
 }

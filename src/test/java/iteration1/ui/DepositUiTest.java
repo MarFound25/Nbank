@@ -11,6 +11,7 @@ import ui.pages.BankAlert;
 import ui.pages.UserDashboard;
 import ui.pages.DepositPage;
 
+import static iteration1.ui.TestData.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class DepositUiTest extends BaseUiTest {
@@ -29,7 +30,7 @@ public class DepositUiTest extends BaseUiTest {
         CreateUserRequest createUserRequest = CreateUserRequest.builder()
                 .username(username)
                 .password(password)
-                .name("Test User")
+                .name(DEFAULT_USER_NAME)
                 .role(UserRole.USER.toString())
                 .build();
 
@@ -47,37 +48,31 @@ public class DepositUiTest extends BaseUiTest {
 
     @Test
     public void userCanDepositValidAmountTest() {
-        double depositAmount = 1000.00;
-
         dashboard.open();
         dashboard.openDepositPage();
-        depositPage.makeDeposit(depositAmount, true, 1);
+        depositPage.makeDeposit(VALID_DEPOSIT_AMOUNT, true, FIRST_ACCOUNT_INDEX);
         depositPage.checkAlertMessageAndAccept(BankAlert.DEPOSIT_SUCCESSFULLY.getMessage());
 
         double newBalance = UserSteps.getAccountBalance(userToken, accountId);
-        assertThat(newBalance).isEqualTo(initialBalance + depositAmount);
+        assertThat(newBalance).isEqualTo(initialBalance + VALID_DEPOSIT_AMOUNT);
     }
 
     @Test
     public void userCanDepositMaxLimitAmountTest() {
-        double depositAmount = 5000.00;
-
         dashboard.open();
         dashboard.openDepositPage();
-        depositPage.makeDeposit(depositAmount, true, 1);
+        depositPage.makeDeposit(MAX_DEPOSIT_AMOUNT, true, FIRST_ACCOUNT_INDEX);
         depositPage.checkAlertMessageAndAccept(BankAlert.DEPOSIT_SUCCESSFULLY.getMessage());
 
         double newBalance = UserSteps.getAccountBalance(userToken, accountId);
-        assertThat(newBalance).isEqualTo(initialBalance + depositAmount);
+        assertThat(newBalance).isEqualTo(initialBalance + MAX_DEPOSIT_AMOUNT);
     }
 
     @Test
     public void userCannotDepositAboveLimitTest() {
-        double invalidAmount = 5001.00;
-
         dashboard.open();
         dashboard.openDepositPage();
-        depositPage.makeDeposit(invalidAmount, true, 1);
+        depositPage.makeDeposit(INVALID_DEPOSIT_AMOUNT, true, FIRST_ACCOUNT_INDEX);
         depositPage.checkAlertMessageAndAccept(BankAlert.DEPOSIT_LIMIT_EXCEEDED.getMessage());
 
         double newBalance = UserSteps.getAccountBalance(userToken, accountId);
@@ -88,7 +83,7 @@ public class DepositUiTest extends BaseUiTest {
     public void userCannotDepositWithoutAccountTest() {
         dashboard.open();
         dashboard.openDepositPage();
-        depositPage.makeDeposit(1000.00, false, 1);
+        depositPage.makeDeposit(DEPOSIT_AMOUNT_1000, false, FIRST_ACCOUNT_INDEX);
         depositPage.checkAlertMessageAndAccept(BankAlert.SELECT_ACCOUNT.getMessage());
 
         double newBalance = UserSteps.getAccountBalance(userToken, accountId);

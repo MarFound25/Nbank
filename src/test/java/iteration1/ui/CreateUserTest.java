@@ -9,6 +9,7 @@ import requests.steps.AdminSteps;
 import ui.pages.AdminPanel;
 import ui.pages.BankAlert;
 
+import static iteration1.ui.TestData.INVALID_USERNAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class CreateUserTest extends BaseUiTest {
@@ -40,7 +41,7 @@ public class CreateUserTest extends BaseUiTest {
         loginAsAdmin();
 
         CreateUserRequest newUser = RandomModelGenerator.generate(CreateUserRequest.class);
-        newUser.setUsername("a");
+        newUser.setUsername(INVALID_USERNAME);
 
         new AdminPanel().open()
                 .createUser(newUser.getUsername(), newUser.getPassword())

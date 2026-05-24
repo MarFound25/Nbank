@@ -13,6 +13,8 @@ import requests.steps.UserSteps;
 
 import static com.codeborne.selenide.Selenide.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static iteration1.ui.TestData.ADMIN_USERNAME;
+import static iteration1.ui.TestData.ADMIN_PASSWORD;
 
 public class BaseUiTest extends BaseTest {
 
@@ -56,7 +58,7 @@ public class BaseUiTest extends BaseTest {
     }
 
     protected void loginAsAdmin() {
-        loginThroughUi("admin", "admin");
+        loginThroughUi(ADMIN_USERNAME, ADMIN_PASSWORD);
         $(Selectors.byText("Admin Panel")).shouldBe(Condition.visible);
     }
 

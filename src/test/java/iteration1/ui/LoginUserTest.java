@@ -10,6 +10,7 @@ import requests.steps.AdminSteps;
 import ui.pages.LoginPage;
 
 import static com.codeborne.selenide.Selenide.$;
+import static iteration1.ui.TestData.*;
 
 public class LoginUserTest extends BaseUiTest {
 
@@ -18,7 +19,7 @@ public class LoginUserTest extends BaseUiTest {
     @Test
     public void adminCanLoginWithCorrectDataTest() {
         loginPage.open()
-                .login("admin", "admin");
+                .login(ADMIN_USERNAME, ADMIN_PASSWORD);
 
         $(Selectors.byText("Admin Panel")).shouldBe(Condition.visible);
     }
@@ -31,7 +32,7 @@ public class LoginUserTest extends BaseUiTest {
         CreateUserRequest createRequest = CreateUserRequest.builder()
                 .username(username)
                 .password(password)
-                .name("Test User")
+                .name(DEFAULT_USER_NAME)
                 .role(UserRole.USER.toString())
                 .build();
 
@@ -41,5 +42,6 @@ public class LoginUserTest extends BaseUiTest {
                 .login(username, password);
 
         $(".welcome-text").shouldBe(Condition.visible);
+        $(".welcome-text").shouldHave(Condition.text(WELCOME_TEXT_PREFIX));
     }
 }

@@ -11,6 +11,8 @@ import requests.steps.UserSteps;
 import ui.pages.UserDashboard;
 import ui.pages.TransferPage;
 import ui.pages.BankAlert;
+
+import static iteration1.ui.TestData.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TransferUiTest extends BaseUiTest {
@@ -33,7 +35,7 @@ public class TransferUiTest extends BaseUiTest {
         CreateUserRequest createUserRequest = CreateUserRequest.builder()
                 .username(username)
                 .password(password)
-                .name("Test User")
+                .name(DEFAULT_USER_NAME)
                 .role(UserRole.USER.toString())
                 .build();
 
@@ -44,7 +46,7 @@ public class TransferUiTest extends BaseUiTest {
         toAccountId = UserSteps.createAccount(userToken);
 
         for (int i = 0; i < 3; i++) {
-            UserSteps.deposit(userToken, fromAccountId, 5000.00);
+            UserSteps.deposit(userToken, fromAccountId, MAX_DEPOSIT_AMOUNT);
         }
 
         Account[] accounts = UserSteps.getAccounts(userToken).toArray(new Account[0]);
@@ -72,13 +74,11 @@ public class TransferUiTest extends BaseUiTest {
 
     @Test
     public void userCanTransferValidAmountTest() {
-        double transferAmount = 3000.00;
-
         openTransferPage();
-        transferPage.selectFromAccount(1);
-        transferPage.enterRecipientName("Test User");
+        transferPage.selectFromAccount(FIRST_ACCOUNT_INDEX);
+        transferPage.enterRecipientName(DEFAULT_RECIPIENT_NAME);
         transferPage.enterRecipientAccount(toAccountNumber);
-        transferPage.enterAmount(transferAmount);
+        transferPage.enterAmount(VALID_TRANSFER_AMOUNT);
         transferPage.confirm();
         transferPage.send();
         transferPage.checkAlertMessageAndAccept(BankAlert.TRANSFER_SUCCESSFULLY.getMessage());
@@ -86,19 +86,17 @@ public class TransferUiTest extends BaseUiTest {
         double newFromBalance = UserSteps.getAccountBalance(userToken, fromAccountId);
         double newToBalance = UserSteps.getAccountBalance(userToken, toAccountId);
 
-        assertThat(newFromBalance).isEqualTo(fromInitialBalance - transferAmount);
-        assertThat(newToBalance).isEqualTo(toInitialBalance + transferAmount);
+        assertThat(newFromBalance).isEqualTo(fromInitialBalance - VALID_TRANSFER_AMOUNT);
+        assertThat(newToBalance).isEqualTo(toInitialBalance + VALID_TRANSFER_AMOUNT);
     }
 
     @Test
     public void userCanTransferMaxLimitAmountTest() {
-        double transferAmount = 10000.00;
-
         openTransferPage();
-        transferPage.selectFromAccount(1);
-        transferPage.enterRecipientName("Test User");
+        transferPage.selectFromAccount(FIRST_ACCOUNT_INDEX);
+        transferPage.enterRecipientName(DEFAULT_RECIPIENT_NAME);
         transferPage.enterRecipientAccount(toAccountNumber);
-        transferPage.enterAmount(transferAmount);
+        transferPage.enterAmount(MAX_TRANSFER_AMOUNT);
         transferPage.confirm();
         transferPage.send();
         transferPage.checkAlertMessageAndAccept(BankAlert.TRANSFER_SUCCESSFULLY.getMessage());
@@ -106,19 +104,17 @@ public class TransferUiTest extends BaseUiTest {
         double newFromBalance = UserSteps.getAccountBalance(userToken, fromAccountId);
         double newToBalance = UserSteps.getAccountBalance(userToken, toAccountId);
 
-        assertThat(newFromBalance).isEqualTo(fromInitialBalance - transferAmount);
-        assertThat(newToBalance).isEqualTo(toInitialBalance + transferAmount);
+        assertThat(newFromBalance).isEqualTo(fromInitialBalance - MAX_TRANSFER_AMOUNT);
+        assertThat(newToBalance).isEqualTo(toInitialBalance + MAX_TRANSFER_AMOUNT);
     }
 
     @Test
     public void userCannotTransferAboveLimitTest() {
-        double invalidAmount = 10001.00;
-
         openTransferPage();
-        transferPage.selectFromAccount(1);
-        transferPage.enterRecipientName("Test User");
+        transferPage.selectFromAccount(FIRST_ACCOUNT_INDEX);
+        transferPage.enterRecipientName(DEFAULT_RECIPIENT_NAME);
         transferPage.enterRecipientAccount(toAccountNumber);
-        transferPage.enterAmount(invalidAmount);
+        transferPage.enterAmount(INVALID_TRANSFER_AMOUNT);
         transferPage.confirm();
         transferPage.send();
         transferPage.checkAlertMessageAndAccept(BankAlert.TRANSFER_LIMIT_EXCEEDED.getMessage());
@@ -132,11 +128,11 @@ public class TransferUiTest extends BaseUiTest {
 
     @Test
     public void userCannotTransferMoreThanBalanceTest() {
-        double invalidAmount = fromInitialBalance + 1000;
+        double invalidAmount = fromInitialBalance + TRANSFER_AMOUNT_1000;
 
         openTransferPage();
-        transferPage.selectFromAccount(1);
-        transferPage.enterRecipientName("Test User");
+        transferPage.selectFromAccount(FIRST_ACCOUNT_INDEX);
+        transferPage.enterRecipientName(DEFAULT_RECIPIENT_NAME);
         transferPage.enterRecipientAccount(toAccountNumber);
         transferPage.enterAmount(invalidAmount);
         transferPage.confirm();
@@ -154,9 +150,9 @@ public class TransferUiTest extends BaseUiTest {
     public void userCannotTransferWithoutFromAccountTest() {
         openTransferPage();
 
-        transferPage.enterRecipientName("Test User");
+        transferPage.enterRecipientName(DEFAULT_RECIPIENT_NAME);
         transferPage.enterRecipientAccount(toAccountNumber);
-        transferPage.enterAmount(1000);
+        transferPage.enterAmount(TRANSFER_AMOUNT_1000);
         transferPage.confirm();
         transferPage.send();
         transferPage.checkAlertMessageAndAccept(BankAlert.PLEASE_FILL_ALL_FIELDS.getMessage());
@@ -171,10 +167,10 @@ public class TransferUiTest extends BaseUiTest {
     @Test
     public void userCannotTransferWithoutConfirmationTest() {
         openTransferPage();
-        transferPage.selectFromAccount(1);
-        transferPage.enterRecipientName("Test User");
+        transferPage.selectFromAccount(FIRST_ACCOUNT_INDEX);
+        transferPage.enterRecipientName(DEFAULT_RECIPIENT_NAME);
         transferPage.enterRecipientAccount(toAccountNumber);
-        transferPage.enterAmount(1000);
+        transferPage.enterAmount(TRANSFER_AMOUNT_1000);
         transferPage.send();
         transferPage.checkAlertMessageAndAccept(BankAlert.PLEASE_FILL_ALL_FIELDS_AND_CONFIRM.getMessage());
 
