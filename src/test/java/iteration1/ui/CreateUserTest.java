@@ -4,27 +4,30 @@ import com.codeborne.selenide.Condition;
 import generators.RandomModelGenerator;
 import models.CreateUserRequest;
 import models.CreateUserResponse;
-import org.junit.jupiter.api.Test;
 import requests.steps.AdminSteps;
+import common.annotations.AdminSession;
+import org.junit.jupiter.api.Test;
 import ui.pages.AdminPanel;
 import ui.pages.BankAlert;
+import ui.pages.TestDataConstants;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class CreateUserTest extends BaseUiTest {
 
     @Test
+    @AdminSession
     public void adminCanCreateUserTest() {
-        loginAsAdmin();
-
         CreateUserRequest newUser = RandomModelGenerator.generate(CreateUserRequest.class);
 
-        new AdminPanel().open()
-                .createUser(newUser.getUsername(), newUser.getPassword())
-                .checkAlertMessageAndAccept(BankAlert.USER_CREATED_SUCCESSFULLY.getMessage())
-                .getAllUsers()
-                .findBy(Condition.exactText(newUser.getUsername() + "\nUSER"))
-                .shouldBe(Condition.visible);
+        AdminPanel adminPanel = new AdminPanel().open();
+
+        adminPanel.getAdminPanelText().shouldBe(Condition.visible);
+
+        adminPanel.createUser(newUser.getUsername(), newUser.getPassword())
+                .checkAlertMessageAndAccept(BankAlert.USER_CREATED_SUCCESSFULLY.getMessage());
+
+        adminPanel.findUser(newUser.getUsername()).shouldBe(Condition.visible);
 
         CreateUserResponse createdUser = AdminSteps.getAllUsers().stream()
                 .filter(user -> user.getUsername().equals(newUser.getUsername()))
@@ -36,23 +39,25 @@ public class CreateUserTest extends BaseUiTest {
     }
 
     @Test
+    @AdminSession
     public void adminCannotCreateUserWithInvalidDataTest() {
-        loginAsAdmin();
-
         CreateUserRequest newUser = RandomModelGenerator.generate(CreateUserRequest.class);
-        newUser.setUsername("a");
+        newUser.setUsername(TestDataConstants.INVALID_USERNAME);
 
-        new AdminPanel().open()
-                .createUser(newUser.getUsername(), newUser.getPassword())
-                .checkAlertMessageAndAccept(BankAlert.USERNAME_MUST_BE_BETWEEN_3_AND_15_CHARACTERS.getMessage())
-                .getAllUsers()
-                .findBy(Condition.exactText(newUser.getUsername() + "\nUSER"))
-                .shouldNotBe(Condition.exist);
+        AdminPanel adminPanel = new AdminPanel().open();
 
-        long usersWithSameUserName = AdminSteps.getAllUsers().stream()
+        adminPanel.getAdminPanelText().shouldBe(Condition.visible);
+
+        adminPanel.createUser(newUser.getUsername(), newUser.getPassword())
+                .checkAlertMessageAndAccept(
+                        BankAlert.USERNAME_MUST_BE_BETWEEN_3_AND_15_CHARACTERS.getMessage());
+
+        adminPanel.findUser(newUser.getUsername()).shouldNotBe(Condition.exist);
+
+        long usersWithSameUsernameAsNewUser = AdminSteps.getAllUsers().stream()
                 .filter(user -> user.getUsername().equals(newUser.getUsername()))
                 .count();
 
-        assertThat(usersWithSameUserName).isZero();
+        assertThat(usersWithSameUsernameAsNewUser).isZero();
     }
 }

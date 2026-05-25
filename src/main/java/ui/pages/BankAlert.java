@@ -22,7 +22,7 @@ public enum BankAlert {
     PROFILE_SUCCESS("success"),
     PROFILE_TWO_WORDS("two words"),
     PROFILE_LETTERS_ONLY("letters"),
-    PROFILE_SAME_AS_CURRENT("same as the current one"),
+    PROFILE_SAME_AS_CURRENT("❌ Please enter a valid name."),
     PROFILE_UPDATED_SUCCESSFULLY("updated successfully");
 
     private final String message;

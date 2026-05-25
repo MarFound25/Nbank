@@ -1,45 +1,35 @@
 package iteration1.ui;
 
 import com.codeborne.selenide.Condition;
-import com.codeborne.selenide.Selectors;
-import generators.RandomData;
-import models.CreateUserRequest;
-import models.UserRole;
+import common.annotations.Browsers;
+import common.annotations.UserSession;
+import common.storage.SessionStorage;
 import org.junit.jupiter.api.Test;
-import requests.steps.AdminSteps;
+import ui.pages.AdminPanel;
 import ui.pages.LoginPage;
-
-import static com.codeborne.selenide.Selenide.$;
+import ui.pages.UserDashboard;
+import ui.pages.TestDataConstants;
 
 public class LoginUserTest extends BaseUiTest {
 
-    private LoginPage loginPage = new LoginPage();
-
     @Test
+    @Browsers({"chrome"})
     public void adminCanLoginWithCorrectDataTest() {
-        loginPage.open()
-                .login("admin", "admin");
-
-        $(Selectors.byText("Admin Panel")).shouldBe(Condition.visible);
+        new LoginPage().open()
+                .login(TestDataConstants.ADMIN_USERNAME, TestDataConstants.ADMIN_PASSWORD)
+                .getPage(AdminPanel.class)
+                .getAdminPanelText()
+                .shouldBe(Condition.visible);
     }
 
     @Test
+    @UserSession
     public void userCanLoginWithCorrectDataTest() {
-        String username = RandomData.getUsername();
-        String password = RandomData.getPassword();
-
-        CreateUserRequest createRequest = CreateUserRequest.builder()
-                .username(username)
-                .password(password)
-                .name("Test User")
-                .role(UserRole.USER.toString())
-                .build();
-
-        AdminSteps.createUser(createRequest);
-
-        loginPage.open()
-                .login(username, password);
-
-        $(".welcome-text").shouldBe(Condition.visible);
+        new LoginPage().open()
+                .login(SessionStorage.getUser().getUsername(), SessionStorage.getUser().getPassword())
+                .getPage(UserDashboard.class)
+                .getWelcomeText()
+                .shouldBe(Condition.visible)
+                .shouldHave(Condition.text(TestDataConstants.WELCOME_TEXT_PREFIX));
     }
 }

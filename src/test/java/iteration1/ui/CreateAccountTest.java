@@ -1,10 +1,10 @@
 package iteration1.ui;
 
+import com.codeborne.selenide.Condition;
 import models.CreateAccountResponse;
-import models.UserWithPassword;
+import common.annotations.UserSession;
+import common.storage.SessionStorage;
 import org.junit.jupiter.api.Test;
-import requests.steps.AdminSteps;
-import requests.steps.UserSteps;
 import ui.pages.BankAlert;
 import ui.pages.UserDashboard;
 
@@ -15,18 +15,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class CreateAccountTest extends BaseUiTest {
 
     @Test
+    @UserSession
     public void userCanCreateAccountTest() {
-        UserWithPassword user = AdminSteps.createUserWithPassword();
-        authThroughLocalStorage(user.getUsername(), user.getPassword());
+        UserDashboard dashboard = new UserDashboard().open();
 
-        new UserDashboard().open()
-                .createNewAccount()
-                .checkAlertMessageAndAccept(BankAlert.NEW_ACCOUNT_CREATED.getMessage());
+        dashboard.getWelcomeText().shouldBe(Condition.visible);
 
-        List<CreateAccountResponse> createdAccounts = new UserSteps(user.getUsername(), user.getPassword())
-                .getAllAccounts();
+        dashboard.createNewAccount();
 
-        assertThat(createdAccounts).hasSize(1);
-        assertThat(createdAccounts.getFirst().getBalance()).isZero();
+        List<CreateAccountResponse> createdAccounts = SessionStorage.getSteps().getAllAccounts();
+
+        assertThat(createdAccounts)
+                .as("Должен быть создан ровно один счет")
+                .hasSize(1);
+
+        dashboard.checkAlertMessageAndAccept(
+                BankAlert.NEW_ACCOUNT_CREATED.getMessage() + createdAccounts.getFirst().getAccountNumber());
+
+        assertThat(createdAccounts.getFirst().getBalance())
+                .as("Баланс нового счета должен быть 0")
+                .isZero();
     }
 }

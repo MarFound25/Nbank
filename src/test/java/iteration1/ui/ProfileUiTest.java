@@ -1,98 +1,85 @@
 package iteration1.ui;
 
-import generators.RandomData;
 import models.CreateUserRequest;
 import models.ProfileResponse;
-import models.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import requests.steps.AdminSteps;
 import requests.steps.UserSteps;
+import common.annotations.UserSession;
+import common.storage.SessionStorage;
 import ui.pages.ProfilePage;
 import ui.pages.BankAlert;
+import ui.pages.TestDataConstants;
+import ui.pages.BasePage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class ProfileUiTest extends BaseUiTest {
 
     private String userToken;
-    private String originalName = "Old Name";
-    private ProfilePage profilePage;
+    private String originalName;
 
     @BeforeEach
     public void prepareData() {
-        String username = RandomData.getUsername();
-        String password = RandomData.getPassword();
-
-        CreateUserRequest createUserRequest = CreateUserRequest.builder()
-                .username(username)
-                .password(password)
-                .name(originalName)
-                .role(UserRole.USER.toString())
-                .build();
-
-        AdminSteps.createUser(createUserRequest);
-        userToken = UserSteps.loginAndGetToken(username, password);
-
-        authThroughLocalStorage(userToken);
-        profilePage = new ProfilePage();
+        CreateUserRequest user = SessionStorage.getUser();
+        userToken = UserSteps.loginAndGetToken(user.getUsername(), user.getPassword());
+        BasePage.authAsUser(user);
+        originalName = user.getName();
     }
 
     @Test
+    @UserSession
     public void userCanChangeNameValidTest() {
-        String newName = originalName + "a";
+        String newName = originalName + TestDataConstants.NEW_NAME_SUFFIX;
 
-        profilePage.changeName(newName, BankAlert.PROFILE_SUCCESS.getMessage());
+        new ProfilePage().changeName(newName, BankAlert.PROFILE_SUCCESS.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(newName);
     }
 
     @Test
+    @UserSession
     public void userCannotChangeToSingleWordTest() {
-        String invalidName = "John";
-
-        profilePage.changeName(invalidName, BankAlert.PROFILE_TWO_WORDS.getMessage());
+        new ProfilePage().changeName(TestDataConstants.INVALID_SINGLE_WORD, BankAlert.PROFILE_TWO_WORDS.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(originalName);
     }
 
     @Test
+    @UserSession
     public void userCannotChangeNameWithDigitsTest() {
-        String invalidName = "John 123";
-
-        profilePage.changeName(invalidName, BankAlert.PROFILE_LETTERS_ONLY.getMessage());
+        new ProfilePage().changeName(TestDataConstants.INVALID_WITH_DIGITS, BankAlert.PROFILE_LETTERS_ONLY.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(originalName);
     }
 
     @Test
+    @UserSession
     public void userCannotChangeNameWithSpecialCharsTest() {
-        String invalidName = "John@ Doe";
-
-        profilePage.changeName(invalidName, BankAlert.PROFILE_LETTERS_ONLY.getMessage());
+        new ProfilePage().changeName(TestDataConstants.INVALID_WITH_SPECIAL, BankAlert.PROFILE_LETTERS_ONLY.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(originalName);
     }
 
     @Test
+    @UserSession
     public void userCannotChangeToEmptyNameTest() {
-        String invalidName = "";
-
-        profilePage.changeName(invalidName, BankAlert.PROFILE_SAME_AS_CURRENT.getMessage());
+        new ProfilePage().changeName(TestDataConstants.EMPTY_STRING, BankAlert.PROFILE_SAME_AS_CURRENT.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(originalName);
     }
 
     @Test
+    @UserSession
     public void userNameShouldBeTrimmedTest() {
-        String expectedName = "Anna Smith";
+        String expectedName = TestDataConstants.EXPECTED_TRIMMED_NAME;
 
-        profilePage.changeName(expectedName, BankAlert.PROFILE_UPDATED_SUCCESSFULLY.getMessage());
+        new ProfilePage().changeName(expectedName, BankAlert.PROFILE_UPDATED_SUCCESSFULLY.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(expectedName);

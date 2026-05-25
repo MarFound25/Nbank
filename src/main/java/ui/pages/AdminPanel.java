@@ -1,9 +1,6 @@
 package ui.pages;
 
-import com.codeborne.selenide.Condition;
-import com.codeborne.selenide.ElementsCollection;
-import com.codeborne.selenide.Selectors;
-import com.codeborne.selenide.SelenideElement;
+import com.codeborne.selenide.*;
 import lombok.Getter;
 
 import static com.codeborne.selenide.Selenide.$;
@@ -12,7 +9,7 @@ import static com.codeborne.selenide.Selenide.$;
 public class AdminPanel extends BasePage<AdminPanel> {
 
     private SelenideElement adminPanelText = $(Selectors.byText("Admin Panel"));
-    private SelenideElement addUserButton = $(Selectors.byText("Add User"));
+    private SelenideElement addUserButton = $(".btn.btn-primary.w-100");
     private SelenideElement usernameInput = $(Selectors.byAttribute("placeholder", "Username"));
     private SelenideElement passwordInput = $(Selectors.byAttribute("placeholder", "Password"));
 
@@ -22,9 +19,9 @@ public class AdminPanel extends BasePage<AdminPanel> {
     }
 
     public AdminPanel createUser(String username, String password) {
-        usernameInput.sendKeys(username);
-        passwordInput.sendKeys(password);
-        addUserButton.click();
+        usernameInput.shouldBe(Condition.visible).sendKeys(username);
+        passwordInput.shouldBe(Condition.visible).sendKeys(password);
+        addUserButton.shouldBe(Condition.visible).click();
         return this;
     }
 
@@ -40,5 +37,11 @@ public class AdminPanel extends BasePage<AdminPanel> {
 
     public SelenideElement findUser(String username) {
         return getAllUsers().findBy(Condition.exactText(username + "\nUSER"));
+    }
+
+    public AdminPanel refreshAndWaitForUser(String username) {
+        Selenide.refresh();
+        adminPanelText.shouldBe(Condition.visible);
+        return this;
     }
 }

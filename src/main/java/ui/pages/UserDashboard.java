@@ -2,6 +2,7 @@ package ui.pages;
 
 import com.codeborne.selenide.Condition;
 import com.codeborne.selenide.Selectors;
+import com.codeborne.selenide.Selenide;
 import com.codeborne.selenide.SelenideElement;
 import lombok.Getter;
 
@@ -12,7 +13,7 @@ import static com.codeborne.selenide.Selenide.$$;
 public class UserDashboard extends BasePage<UserDashboard> {
 
     private SelenideElement welcomeText = $(Selectors.byClassName("welcome-text"));
-    private SelenideElement createNewAccount = $(Selectors.byText("➕ Create New Account"));
+    private SelenideElement createNewAccount = $$(".custom-btn.action-btn").last();
 
     @Override
     public String url() {
@@ -20,13 +21,14 @@ public class UserDashboard extends BasePage<UserDashboard> {
     }
 
     public UserDashboard createNewAccount() {
-        createNewAccount.click();
+        createNewAccount.shouldBe(Condition.visible).click();
+        Selenide.sleep(500);
         return this;
     }
 
-    public UserDashboard openDepositPage() {
+    public DepositPage openDepositPage() {
         $$(".custom-btn.action-btn").first().click();
-        return this;
+        return new DepositPage();
     }
 
     public TransferPage openTransferPage() {

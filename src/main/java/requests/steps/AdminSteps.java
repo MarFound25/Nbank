@@ -21,6 +21,35 @@ public class AdminSteps {
                 .as(CreateUserResponse.class);
     }
 
+    public static CreateUserRequest createUserRequest() {
+        return CreateUserRequest.builder()
+                .username(RandomData.getUsername())
+                .password(RandomData.getPassword())
+                .name("Test User")
+                .role(UserRole.USER.toString())
+                .build();
+    }
+
+    public static CreateUserResponse createUser() {
+        CreateUserRequest request = createUserRequest();
+        return createUser(request);
+    }
+
+    public static UserWithPassword createUserWithPassword() {
+        String rawPassword = RandomData.getPassword();
+        String username = RandomData.getUsername();
+
+        CreateUserRequest request = CreateUserRequest.builder()
+                .username(username)
+                .password(rawPassword)
+                .name("Test User")
+                .role(UserRole.USER.toString())
+                .build();
+
+        CreateUserResponse response = createUser(request);
+        return new UserWithPassword(response, rawPassword);
+    }
+
     public static String createUserAndGetToken(CreateUserRequest request) {
         createUser(request);
 
@@ -39,8 +68,6 @@ public class AdminSteps {
                 .jsonPath()
                 .getString("token");
     }
-
-
 
     public static void getAllUsersAndExpectForbidden(String token) {
         new CrudRequesters(RequestSpecs.authWithToken(token), ResponseSpecs.requestReturnsForbidden())
@@ -120,30 +147,5 @@ public class AdminSteps {
                 .extract()
                 .jsonPath()
                 .getList("", CreateUserResponse.class);
-    }
-
-    public static CreateUserResponse createUser() {
-        CreateUserRequest request = CreateUserRequest.builder()
-                .username(RandomData.getUsername())
-                .password(RandomData.getPassword())
-                .name("Test User")
-                .role(UserRole.USER.toString())
-                .build();
-        return createUser(request);
-    }
-
-    public static UserWithPassword createUserWithPassword() {
-        String rawPassword = RandomData.getPassword();
-        String username = RandomData.getUsername();
-
-        CreateUserRequest request = CreateUserRequest.builder()
-                .username(username)
-                .password(rawPassword)
-                .name("Test User")
-                .role(UserRole.USER.toString())
-                .build();
-
-        CreateUserResponse response = createUser(request);
-        return new UserWithPassword(response, rawPassword);
     }
 }
