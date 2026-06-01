@@ -18,12 +18,13 @@ public enum BankAlert {
     TRANSFER_AMOUNT_EXCEED("Transfer amount cannot exceed"),
     PLEASE_FILL_ALL_FIELDS("Please fill all fields"),
     PLEASE_FILL_ALL_FIELDS_AND_CONFIRM("Please fill all fields and confirm"),
-
+    PROFILE_SAME_AS_CURRENT("⚠️ New name is the same as the current one."),
     PROFILE_SUCCESS("success"),
     PROFILE_TWO_WORDS("two words"),
     PROFILE_LETTERS_ONLY("letters"),
-    PROFILE_SAME_AS_CURRENT("❌ Please enter a valid name."),
+    PROFILE__ENTER_VALID_NAME("❌ Please enter a valid name."),
     PROFILE_UPDATED_SUCCESSFULLY("updated successfully");
+
 
     private final String message;
 

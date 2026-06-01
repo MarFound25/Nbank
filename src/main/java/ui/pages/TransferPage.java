@@ -5,7 +5,7 @@ import com.codeborne.selenide.Selectors;
 import com.codeborne.selenide.SelenideElement;
 import lombok.Getter;
 
-import static com.codeborne.selenide.CollectionCondition.size;
+import static com.codeborne.selenide.CollectionCondition.sizeGreaterThan;
 import static com.codeborne.selenide.Selenide.$;
 import static com.codeborne.selenide.Selenide.$$;
 
@@ -27,7 +27,7 @@ public class TransferPage extends BasePage<TransferPage> {
     public TransferPage selectFromAccount(int index) {
         accountSelector.shouldBe(Condition.visible);
         accountSelector.click();
-        $$("select.account-selector option").shouldHave(size(3));
+        $$("select.account-selector option").shouldHave(sizeGreaterThan(1));
         accountSelector.selectOption(index);
         return this;
     }
@@ -74,5 +74,23 @@ public class TransferPage extends BasePage<TransferPage> {
         confirm();
         send();
         return this;
+    }
+
+    public TransferPage makeTransferByAccountNumber(String fromAccountNumber, String toAccountNumber, double amount) {
+        selectFromAccountByNumber(fromAccountNumber);
+        enterRecipientName(TestDataConstants.DEFAULT_USER_NAME);
+        enterRecipientAccount(toAccountNumber);
+        enterAmount(amount);
+        confirm();
+        send();
+        return this;
+    }
+
+    private void selectFromAccountByNumber(String accountNumber) {
+        accountSelector.shouldBe(Condition.visible);
+        accountSelector.click();
+        $$("select.account-selector option").shouldHave(sizeGreaterThan(1));
+        // Ищем опцию по тексту (например, "ACC381")
+        $$("select.account-selector option").findBy(Condition.text(accountNumber)).click();
     }
 }

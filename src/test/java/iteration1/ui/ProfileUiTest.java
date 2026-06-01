@@ -24,7 +24,10 @@ public class ProfileUiTest extends BaseUiTest {
         CreateUserRequest user = SessionStorage.getUser();
         userToken = UserSteps.loginAndGetToken(user.getUsername(), user.getPassword());
         BasePage.authAsUser(user);
-        originalName = user.getName();
+
+        // Просто запоминаем текущее имя, не меняя его
+        ProfileResponse profile = UserSteps.getProfile(userToken);
+        originalName = profile.getName();
     }
 
     @Test
@@ -68,7 +71,7 @@ public class ProfileUiTest extends BaseUiTest {
     @Test
     @UserSession
     public void userCannotChangeToEmptyNameTest() {
-        new ProfilePage().changeName(TestDataConstants.EMPTY_STRING, BankAlert.PROFILE_SAME_AS_CURRENT.getMessage());
+        new ProfilePage().changeName(TestDataConstants.EMPTY_STRING, BankAlert.PROFILE__ENTER_VALID_NAME.getMessage());
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(originalName);
@@ -83,5 +86,7 @@ public class ProfileUiTest extends BaseUiTest {
 
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(expectedName);
+
+
     }
 }
