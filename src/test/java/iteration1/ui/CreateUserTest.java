@@ -1,9 +1,11 @@
 package iteration1.ui;
 
 import com.codeborne.selenide.Condition;
+import common.extensions.UserSessionExtension;
 import generators.RandomModelGenerator;
 import models.CreateUserRequest;
 import models.CreateUserResponse;
+import org.junit.jupiter.api.extension.ExtendWith;
 import requests.steps.AdminSteps;
 import common.annotations.AdminSession;
 import org.junit.jupiter.api.Test;
@@ -12,7 +14,7 @@ import ui.pages.BankAlert;
 import ui.pages.TestDataConstants;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
+@ExtendWith(UserSessionExtension.class)
 public class CreateUserTest extends BaseUiTest {
 
     @Test

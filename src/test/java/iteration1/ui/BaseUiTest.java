@@ -3,6 +3,7 @@ package iteration1.ui;
 import com.codeborne.selenide.Configuration;
 import com.codeborne.selenide.Condition;
 import com.codeborne.selenide.Selenide;
+import common.extensions.BrowserMatchExtension;
 import iteration1.api.BaseTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -15,7 +16,7 @@ import common.extensions.UserSessionExtension;
 import static com.codeborne.selenide.Selenide.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@ExtendWith({AdminSessionExtension.class, UserSessionExtension.class})
+@ExtendWith({AdminSessionExtension.class, UserSessionExtension.class, BrowserMatchExtension.class})
 public class BaseUiTest extends BaseTest {
 
     @BeforeAll
@@ -24,9 +25,9 @@ public class BaseUiTest extends BaseTest {
         Configuration.browserSize = "1920x1080";
         Configuration.baseUrl = "http://localhost:3000";
         Configuration.timeout = 10000;
-        Configuration.headless = false;
-        Configuration.screenshots = true;
-        Configuration.savePageSource = true;
+        Configuration.headless = true;
+//        Configuration.screenshots = true;
+//        Configuration.savePageSource = true;
     }
 
     @BeforeEach

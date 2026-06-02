@@ -57,7 +57,7 @@ public class TransferUiTest extends BaseUiTest {
     public void userCanTransferValidAmountTest() {
         new UserDashboard().open()
                 .openTransferPage()
-                .makeTransfer(TestDataConstants.FIRST_ACCOUNT_INDEX, toAccountNumber, TestDataConstants.VALID_TRANSFER_AMOUNT)
+                .makeTransferByAccountNumber(fromAccountNumber, toAccountNumber, TestDataConstants.VALID_TRANSFER_AMOUNT)
                 .checkAlertMessageAndAccept(BankAlert.TRANSFER_SUCCESSFULLY.getMessage());
 
         double newFromBalance = UserSteps.getAccountBalance(userToken, fromAccountId);
@@ -72,7 +72,7 @@ public class TransferUiTest extends BaseUiTest {
     public void userCanTransferMaxLimitAmountTest() {
         new UserDashboard().open()
                 .openTransferPage()
-                .makeTransfer(TestDataConstants.FIRST_ACCOUNT_INDEX, toAccountNumber, TestDataConstants.MAX_TRANSFER_AMOUNT)
+                .makeTransferByAccountNumber(fromAccountNumber, toAccountNumber, TestDataConstants.MAX_TRANSFER_AMOUNT)
                 .checkAlertMessageAndAccept(BankAlert.TRANSFER_SUCCESSFULLY.getMessage());
 
         double newFromBalance = UserSteps.getAccountBalance(userToken, fromAccountId);
@@ -87,7 +87,7 @@ public class TransferUiTest extends BaseUiTest {
     public void userCannotTransferAboveLimitTest() {
         new UserDashboard().open()
                 .openTransferPage()
-                .makeTransfer(TestDataConstants.FIRST_ACCOUNT_INDEX, toAccountNumber, TestDataConstants.INVALID_TRANSFER_AMOUNT)
+                .makeTransferByAccountNumber(fromAccountNumber, toAccountNumber, TestDataConstants.INVALID_TRANSFER_AMOUNT)
                 .checkAlertMessageAndAccept(BankAlert.TRANSFER_LIMIT_EXCEEDED.getMessage());
 
         double newFromBalance = UserSteps.getAccountBalance(userToken, fromAccountId);
@@ -104,7 +104,7 @@ public class TransferUiTest extends BaseUiTest {
 
         new UserDashboard().open()
                 .openTransferPage()
-                .makeTransfer(TestDataConstants.FIRST_ACCOUNT_INDEX, toAccountNumber, invalidAmount)
+                .makeTransferByAccountNumber(fromAccountNumber, toAccountNumber, invalidAmount)
                 .checkAlertMessageAndAccept(BankAlert.TRANSFER_AMOUNT_EXCEED.getMessage());
 
         double newFromBalance = UserSteps.getAccountBalance(userToken, fromAccountId);
