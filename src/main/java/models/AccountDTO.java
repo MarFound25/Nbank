@@ -1,21 +1,18 @@
 package models;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.List;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class Account {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class AccountDTO {  // ← Новый класс без транзакций
     private long id;
     private String accountNumber;
     private Double balance;
-
-    @JsonIgnore  // ← ДОБАВИТЬ ЭТУ АННОТАЦИЮ
-    private List<Transaction> transactions;
 }

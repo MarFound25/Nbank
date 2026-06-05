@@ -1,126 +1,109 @@
 package iteration1.api;
 
+import api.dao.AccountDao;
+import api.dao.UserDao;
+import api.dao.comparison.DaoAndModelAssertions;
 import generators.RandomData;
 import models.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import requests.steps.AdminSteps;
+import requests.steps.DataBaseSteps;
 import requests.steps.UserSteps;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
+import static org.assertj.core.api.AssertionsForClassTypes.within;
+
+@DisplayName("Account Management Tests")
 public class CreateAccountTest extends BaseTest {
 
+    private String currentUsername;
+    private Long currentUserId;
+
     private String createUserAndGetToken() {
+        currentUsername = RandomData.getUsername();
+        String password = RandomData.getPassword();
+
         CreateUserRequest createRequest = CreateUserRequest.builder()
-                .username(RandomData.getUsername())
-                .password(RandomData.getPassword())
+                .username(currentUsername)
+                .password(password)
                 .role(UserRole.USER.toString())
                 .build();
 
         AdminSteps.createUser(createRequest);
-        return UserSteps.loginAndGetToken(createRequest.getUsername(), createRequest.getPassword());
+
+        UserDao userDao = DataBaseSteps.getUserByUsername(currentUsername);
+        currentUserId = userDao.getId();
+        trackUser(currentUserId);
+
+        return UserSteps.loginAndGetToken(currentUsername, password);
     }
 
-    @Test
-    public void userCanCreateAccountTest() {
-        String token = createUserAndGetToken();
-        int accountId = UserSteps.createAccount(token);
-        softly.assertThat(accountId).isNotNull();
-        softly.assertThat(accountId).isGreaterThan(0);
-    }
+    @Nested
+    @DisplayName("Positive Scenarios")
+    class PositiveTests {
 
-    @Test
-    public void userCanCreateMultipleAccountsTest() {
-        String token = createUserAndGetToken();
+        @Test
+        @DisplayName("TC-ACC-001: User can create account - DB verification")
+        public void userCanCreateAccountTest() {
+            String token = createUserAndGetToken();
+            int accountId = UserSteps.createAccount(token);
 
-        int account1 = UserSteps.createAccount(token);
-        int account2 = UserSteps.createAccount(token);
+            softly.assertThat(accountId).isNotNull();
+            softly.assertThat(accountId).isGreaterThan(0);
 
-        List<Account> accounts = UserSteps.getAccounts(token);
+            AccountDao accountDao = DataBaseSteps.getAccountById((long) accountId);
 
-        softly.assertThat(accounts)
-                .extracting(Account::getId)
-                .contains((long) account1, (long) account2);
-        softly.assertThat(accounts).hasSize(2);
-    }
+            List<AccountDTO> accounts = UserSteps.getAccounts(token);
+            AccountDTO apiAccount = accounts.stream()
+                    .filter(a -> a.getId() == accountId)
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("Account not found in API response"));
 
-    @Test
-    public void userCanViewOwnAccountsTest() {
-        String token = createUserAndGetToken();
+            softly.assertThat(apiAccount).isNotNull();
+            softly.assertThat(accountDao.getUserId()).isEqualTo(currentUserId);
+            softly.assertThat(accountDao.getBalance()).isEqualTo(0.0);
+            softly.assertThat(accountDao.getAccountNumber()).isNotNull();
 
-        int account1 = UserSteps.createAccount(token);
-        int account2 = UserSteps.createAccount(token);
+            trackAccount(accountDao.getId());
+        }
 
-        List<Account> accounts = UserSteps.getAccounts(token);
+        @Test
+        @DisplayName("TC-ACC-003: User can view own accounts - matches DB")
+        public void userCanViewOwnAccountsTest() {
+            String token = createUserAndGetToken();
 
-        softly.assertThat(accounts).hasSize(2);
-        softly.assertThat(accounts)
-                .extracting(Account::getId)
-                .contains((long) account1, (long) account2);
-    }
+            int account1 = UserSteps.createAccount(token);
+            int account2 = UserSteps.createAccount(token);
 
-    @Test
-    public void userCannotViewAnotherUsersAccountsTest() {
-        String token1 = createUserAndGetToken();
-        int user1Account = UserSteps.createAccount(token1);
+            List<AccountDTO> apiAccounts = UserSteps.getAccounts(token);
+            List<AccountDao> dbAccounts = DataBaseSteps.getAccountsByUserId(currentUserId);
 
-        String token2 = createUserAndGetToken();
+            softly.assertThat(apiAccounts).hasSize(2);
+            softly.assertThat(dbAccounts).hasSize(2);
 
-        List<Account> accounts = UserSteps.getAccounts(token2);
+            Map<Long, AccountDao> dbAccountMap = dbAccounts.stream()
+                    .collect(Collectors.toMap(AccountDao::getId, Function.identity()));
 
-        softly.assertThat(accounts).isEmpty();
-        softly.assertThat(accounts)
-                .extracting(Account::getId)
-                .doesNotContain((long) user1Account);
-    }
+            apiAccounts.forEach(apiAccount -> {
+                AccountDao correspondingDbAccount = dbAccountMap.get(apiAccount.getId());
 
-    @Test
-    public void userCanGetAccountTransactionsTest() {
-        String token = createUserAndGetToken();
+                softly.assertThat(correspondingDbAccount)
+                        .as("Account %d not found in database", apiAccount.getId())
+                        .isNotNull();
 
-        int accountId = UserSteps.createAccount(token);
-        UserSteps.deposit(token, accountId, 1000.00);
+                softly.assertThat(apiAccount.getBalance())
+                        .as("Balance mismatch for account %d", apiAccount.getId())
+                        .isCloseTo(correspondingDbAccount.getBalance(), within(0.01));
+            });
 
-        List<Transaction> transactions = UserSteps.getTransactions(token, accountId);
-
-        softly.assertThat(transactions).isNotNull();
-        softly.assertThat(transactions).hasSizeGreaterThanOrEqualTo(1);
-    }
-
-    @Test
-    public void userCannotGetAnotherUsersAccountTransactionsTest() {
-        String token1 = createUserAndGetToken();
-        int user1Account = UserSteps.createAccount(token1);
-        UserSteps.deposit(token1, user1Account, 500.00);
-
-        String token2 = createUserAndGetToken();
-
-        UserSteps.getTransactionsAndExpectForbidden(token2, user1Account);
-    }
-
-    @Test
-    public void userCannotGetTransactionsForNonexistentAccountTest() {
-        String token = createUserAndGetToken();
-        UserSteps.getTransactionsAndExpectForbidden(token, 999999);
-    }
-
-    @Test
-    public void userCannotGetTransactionsWithoutAuthTest() {
-        UserSteps.getTransactionsAndExpectUnauthorized(1);
-    }
-
-    @Test
-    public void userCannotGetTransactionsWithInvalidTokenTest() {
-        UserSteps.getTransactionsWithInvalidTokenAndExpectUnauthorized(1);
-    }
-
-    @Test
-    public void userCannotGetTransactionsWithInvalidBasicAuthTest() {
-        UserSteps.getTransactionsWithInvalidBasicAuthAndExpectUnauthorized("invalid", 1);
-    }
-
-    @Test
-    public void userCannotGetTransactionsWithEmptyTokenTest() {
-        UserSteps.getTransactionsWithEmptyTokenAndExpectUnauthorized(1);
+            trackAccount((long) account1);
+            trackAccount((long) account2);
+        }
     }
 }

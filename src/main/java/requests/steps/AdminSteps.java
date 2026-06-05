@@ -74,6 +74,7 @@ public class AdminSteps {
                 .readAll();
     }
 
+
     public static void deleteUser(long userId) {
         new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsOK())
                 .delete(userId);

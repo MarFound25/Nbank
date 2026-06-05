@@ -1,6 +1,7 @@
 package requests.steps;
 
 import endpoints.Endpoint;
+import io.restassured.path.json.JsonPath;
 import models.*;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
@@ -75,7 +76,7 @@ public class UserSteps {
                 .getInt("id");
     }
 
-    public static List<Account> getAccounts(String token) {
+    public static List<AccountDTO> getAccounts(String token) {
         return given()
                 .spec(RequestSpecs.authWithToken(token))
                 .when()
@@ -84,15 +85,17 @@ public class UserSteps {
                 .spec(ResponseSpecs.requestReturnsOK())
                 .extract()
                 .jsonPath()
-                .getList("", Account.class);
+                .getList("", AccountDTO.class);
     }
 
     public static double getAccountBalance(String token, int accountId) {
-        return getAccounts(token).stream()
-                .filter(account -> account.getId() == accountId)
+        List<AccountDTO> accounts = getAccounts(token);  // ← Используем DTO!
+
+        return accounts.stream()
+                .filter(acc -> acc.getId() == accountId)
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("Account not found: " + accountId))
-                .getBalance();
+                .map(AccountDTO::getBalance)
+                .orElseThrow(() -> new RuntimeException("Account not found: " + accountId));
     }
 
     public static ProfileResponse getProfile(String token) {

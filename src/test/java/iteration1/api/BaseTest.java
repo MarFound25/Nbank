@@ -1,36 +1,52 @@
 package iteration1.api;
 
-import common.extensions.TimingExtension;
-import io.restassured.RestAssured;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
+import api.dao.AccountDao;
+import api.dao.UserDao;
+import generators.RandomData;
+import models.*;
 import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
+import requests.steps.DataBaseSteps;
+import requests.steps.UserSteps;
 
-@ExtendWith(TimingExtension.class)
-public class BaseTest {
+import java.util.ArrayList;
+import java.util.List;
+
+public abstract class BaseTest {
+
     protected SoftAssertions softly;
 
-    @BeforeAll
-    public static void globalSetup() {
-        RestAssured.baseURI = "http://localhost:4111";
-
-        RestAssured.filters(
-                new RequestLoggingFilter(),
-                new ResponseLoggingFilter()
-        );
-    }
+    // Простые списки, не ThreadLocal (если не нужен параллельный запуск)
+    protected final List<Long> createdUsers = new ArrayList<>();
+    protected final List<Long> createdAccounts = new ArrayList<>();
 
     @BeforeEach
-    public void setupTest() {
-        this.softly = new SoftAssertions();
+    void setUp() {
+        softly = new SoftAssertions();
+        createdUsers.clear();
+        createdAccounts.clear();
     }
 
     @AfterEach
-    public void afterTest() {
+    void tearDown() {
+        // Очищаем БД после каждого теста
+        if (!createdAccounts.isEmpty() || !createdUsers.isEmpty()) {
+            DataBaseSteps.cleanupTestData(createdAccounts, createdUsers);
+        }
         softly.assertAll();
+    }
+
+    // Вспомогательные методы для трекинга
+    protected void trackUser(Long userId) {
+        if (userId != null) {
+            createdUsers.add(userId);
+        }
+    }
+
+    protected void trackAccount(Long accountId) {
+        if (accountId != null) {
+            createdAccounts.add(accountId);
+        }
     }
 }

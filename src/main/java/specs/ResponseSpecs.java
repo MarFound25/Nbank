@@ -32,6 +32,13 @@ public class ResponseSpecs {
                 .build();
     }
 
+    public static ResponseSpecification requestReturnsBadRequestWithFieldError(String field, String expectedError) {
+        return new ResponseSpecBuilder()
+                .expectStatusCode(HttpStatus.SC_BAD_REQUEST)
+                .expectBody(field, Matchers.hasItem(expectedError))
+                .build();
+    }
+
     public static ResponseSpecification requestReturnsBadRequest(String errorMessage) {
         return new ResponseSpecBuilder()
                 .expectStatusCode(HttpStatus.SC_BAD_REQUEST)
