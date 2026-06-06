@@ -57,8 +57,6 @@ public class DBRequest<T> {
         EQUALS, LIKE, GREATER_THAN, LESS_THAN
     }
 
-    // ============ БИЛДЕР ============
-
     public static <T> Builder<T> builder() {
         return new Builder<>();
     }
@@ -127,17 +125,11 @@ public class DBRequest<T> {
             };
         }
 
-        /**
-         * Маппинг ResultSet -> UserDao
-         * ВНИМАНИЕ: этот метод НЕ должен вызывать rs.next()!
-         * Навигация по ResultSet происходит в execute()/executeList()
-         */
         private UserDao mapToUserDao(ResultSet rs) throws SQLException {
-            // НЕТ rs.next() здесь!
             return UserDao.builder()
                     .id(rs.getLong("id"))
                     .username(rs.getString("username"))
-                    .passwordHash(rs.getString("password"))  // исправлено: в таблице колонка "password"
+                    .passwordHash(rs.getString("password"))
                     .role(rs.getString("role"))
                     .name(rs.getString("name"))
                     .createdAt(toLocalDateTime(rs, "created_at"))
@@ -145,24 +137,18 @@ public class DBRequest<T> {
                     .build();
         }
 
-        /**
-         * Маппинг ResultSet -> AccountDao
-         * ВНИМАНИЕ: этот метод НЕ должен вызывать rs.next()!
-         */
+
         private AccountDao mapToAccountDao(ResultSet rs) throws SQLException {
-            // НЕТ rs.next() здесь!
             return AccountDao.builder()
                     .id(rs.getLong("id"))
-                    .userId(rs.getLong("customer_id"))  // исправлено: в таблице "customer_id"
+                    .userId(rs.getLong("customer_id"))
                     .accountNumber(rs.getString("account_number"))
                     .balance(rs.getDouble("balance"))
                     .createdAt(toLocalDateTime(rs, "created_at"))
                     .build();
         }
 
-        /**
-         * Вспомогательный метод для безопасного преобразования Timestamp в LocalDateTime
-         */
+
         private LocalDateTime toLocalDateTime(ResultSet rs, String columnName) throws SQLException {
             Timestamp timestamp = rs.getTimestamp(columnName);
             return timestamp != null ? timestamp.toLocalDateTime() : null;
@@ -177,30 +163,24 @@ public class DBRequest<T> {
         );
     }
 
-    /**
-     * Выполняет запрос и возвращает ОДНУ запись
-     * Навигация по ResultSet происходит ЗДЕСЬ, а не в маппере
-     */
+
     private T execute() {
         String sql = buildSql();
         try (Connection conn = getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             setParameters(stmt);
             try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {  // ← навигация ТОЛЬКО здесь!
+                if (rs.next()) {
                     return extractor.apply(rs);
                 }
-                return null;  // запись не найдена
+                return null;
             }
         } catch (SQLException e) {
             throw new RuntimeException("Query failed: " + sql, e);
         }
     }
 
-    /**
-     * Выполняет запрос и возвращает СПИСОК записей
-     * Навигация по ResultSet происходит ЗДЕСЬ, а не в маппере
-     */
+
     private List<T> executeList() {
         String sql = buildSql();
         List<T> results = new ArrayList<>();
@@ -208,7 +188,7 @@ public class DBRequest<T> {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             setParameters(stmt);
             try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {  // ← навигация ТОЛЬКО здесь!
+                while (rs.next()) {
                     T item = extractor.apply(rs);
                     if (item != null) {
                         results.add(item);

@@ -1,7 +1,6 @@
 package iteration1.ui;
 
 import com.codeborne.selenide.Configuration;
-import com.codeborne.selenide.Condition;
 import com.codeborne.selenide.Selenide;
 import common.extensions.BrowserMatchExtension;
 import iteration1.api.BaseTest;
@@ -26,8 +25,6 @@ public class BaseUiTest extends BaseTest {
         Configuration.baseUrl = "http://localhost:3000";
         Configuration.timeout = 10000;
         Configuration.headless = true;
-//        Configuration.screenshots = true;
-//        Configuration.savePageSource = true;
     }
 
     @BeforeEach

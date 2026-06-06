@@ -4,10 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.fasterxml.jackson.annotation.JsonIgnore;  // Добавьте этот импорт
-
 import java.time.LocalDateTime;
-import java.util.List;  // Добавьте этот импорт
 
 @Data
 @Builder

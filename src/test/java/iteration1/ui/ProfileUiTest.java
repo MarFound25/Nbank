@@ -25,7 +25,6 @@ public class ProfileUiTest extends BaseUiTest {
         userToken = UserSteps.loginAndGetToken(user.getUsername(), user.getPassword());
         BasePage.authAsUser(user);
 
-        // Просто запоминаем текущее имя, не меняя его
         ProfileResponse profile = UserSteps.getProfile(userToken);
         originalName = profile.getName();
     }

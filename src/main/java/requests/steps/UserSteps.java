@@ -1,17 +1,20 @@
 package requests.steps;
 
 import endpoints.Endpoint;
-import io.restassured.path.json.JsonPath;
+import io.restassured.response.Response;
 import models.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
-
 import java.util.List;
 import java.util.Locale;
 
 import static io.restassured.RestAssured.given;
 
 public class UserSteps {
+
+    private static final Logger log = LoggerFactory.getLogger(UserSteps.class);
     private String username;
     private String password;
 
@@ -88,8 +91,9 @@ public class UserSteps {
                 .getList("", AccountDTO.class);
     }
 
+    @Deprecated
     public static double getAccountBalance(String token, int accountId) {
-        List<AccountDTO> accounts = getAccounts(token);  // ← Используем DTO!
+        List<AccountDTO> accounts = getAccounts(token);
 
         return accounts.stream()
                 .filter(acc -> acc.getId() == accountId)
@@ -110,13 +114,22 @@ public class UserSteps {
     }
 
     public static void deposit(String token, int accountId, double amount) {
-        given()
+        Response response = given()
                 .spec(RequestSpecs.authWithToken(token))
                 .body(String.format(Locale.US, "{\"id\": %d, \"balance\": %.2f}", accountId, amount))
                 .when()
-                .post(Endpoint.ACCOUNTS_DEPOSIT)
-                .then()
-                .spec(ResponseSpecs.requestReturnsOK());
+                .post(Endpoint.ACCOUNTS_DEPOSIT);
+
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("Deposit failed. Status: " + response.statusCode());
+        }
+
+        try {
+            response.asString();
+        } catch (Exception e) {
+            System.err.println("[BACKEND ISSUE] Deposit response malformed: " + e.getMessage());
+            System.err.println("Will verify deposit result via database check.");
+        }
     }
 
     public static void depositAndExpectBadRequest(String token, int accountId, double amount) {

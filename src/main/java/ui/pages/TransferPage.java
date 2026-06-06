@@ -90,7 +90,6 @@ public class TransferPage extends BasePage<TransferPage> {
         accountSelector.shouldBe(Condition.visible);
         accountSelector.click();
         $$("select.account-selector option").shouldHave(sizeGreaterThan(1));
-        // Ищем опцию по тексту (например, "ACC381")
         $$("select.account-selector option").findBy(Condition.text(accountNumber)).click();
     }
 }

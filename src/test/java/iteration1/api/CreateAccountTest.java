@@ -2,7 +2,6 @@ package iteration1.api;
 
 import api.dao.AccountDao;
 import api.dao.UserDao;
-import api.dao.comparison.DaoAndModelAssertions;
 import generators.RandomData;
 import models.*;
 import org.junit.jupiter.api.DisplayName;

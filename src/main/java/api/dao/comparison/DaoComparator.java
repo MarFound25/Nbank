@@ -10,12 +10,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Production-grade DAO comparator for API response validation.
- * Uses simple properties file configuration - no external dependencies.
- *
- * @author Senior Engineer
- */
+
 public class DaoComparator {
 
     private static final Logger log = LoggerFactory.getLogger(DaoComparator.class);
@@ -34,10 +29,7 @@ public class DaoComparator {
         loadConfiguration();
     }
 
-    /**
-     * Compares API response with DAO object
-     * @throws AssertionError with detailed mismatch description
-     */
+
     public void compare(Object apiResponse, Object dao) {
         long startTime = System.currentTimeMillis();
 
@@ -91,7 +83,6 @@ public class DaoComparator {
 
             int loadedCount = 0;
             for (String key : props.stringPropertyNames()) {
-                // Skip non-rule properties
                 if (key.contains(".") && !key.startsWith("models.")) {
                     log.debug("Skipping non-rule property: {}", key);
                     continue;
@@ -181,7 +172,6 @@ public class DaoComparator {
     private Object extractValue(Object obj, String fieldName)
             throws NoSuchFieldException, IllegalAccessException {
 
-        // Check cache first
         Map<String, Field> fieldCache = fieldsCache.computeIfAbsent(
                 obj.getClass(),
                 k -> new ConcurrentHashMap<>()
@@ -198,7 +188,6 @@ public class DaoComparator {
     }
 
     private Field findField(Class<?> clazz, String fieldName) throws NoSuchFieldException {
-        // Search in current class and superclasses
         Class<?> currentClass = clazz;
         while (currentClass != null) {
             try {
@@ -239,9 +228,7 @@ public class DaoComparator {
         return sb.toString();
     }
 
-    /**
-     * Internal class to collect comparison results
-     */
+
     private static class ComparisonResult {
         private final Map<String, FieldMismatch> failures = new ConcurrentHashMap<>();
         private final Map<String, String> errors = new ConcurrentHashMap<>();

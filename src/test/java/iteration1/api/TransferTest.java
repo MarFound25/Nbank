@@ -2,7 +2,6 @@ package iteration1.api;
 
 import api.dao.AccountDao;
 import api.dao.UserDao;
-import api.dao.comparison.DaoAndModelAssertions;
 import configs.Config;
 import endpoints.Endpoint;
 import generators.RandomData;
@@ -29,7 +28,6 @@ import static org.assertj.core.api.Assertions.within;
 @DisplayName("Transfer Tests - API & Database Integration")
 public class TransferTest extends BaseTest {
 
-    // ============ DATA PROVIDERS (на уровне класса) ============
 
     private static Stream<Arguments> provideValidTransferData() {
         return Stream.of(
@@ -65,7 +63,6 @@ public class TransferTest extends BaseTest {
         );
     }
 
-    // ★ КОНСПЕКТ: balance.delta из конфига ★
     private static final double BALANCE_DELTA = Double.parseDouble(
             Config.getProperty("balance.delta", "0.01")
     );
@@ -152,7 +149,6 @@ public class TransferTest extends BaseTest {
         @MethodSource("iteration1.api.TransferTest#provideValidTransferData")
         @DisplayName("TC-TRF-001: User can transfer between own accounts - DB verification")
         void userCanTransferValidAmountsTest(double depositAmount, double transferAmount) {
-            // GIVEN
             String token = createUserAndGetAuth("Tr");
             int fromAccount = createAccountAndTrack(token, currentUserId1);
             int toAccount = createAccountAndTrack(token, currentUserId1);
@@ -162,10 +158,8 @@ public class TransferTest extends BaseTest {
             double fromInitialBalance = getAccountBalanceFromDb(fromAccount);
             double toInitialBalance = getAccountBalanceFromDb(toAccount);
 
-            // WHEN
             transfer(token, fromAccount, toAccount, transferAmount);
 
-            // THEN - Database verification
             AccountDao fromAccountAfter = DataBaseSteps.getAccountById((long) fromAccount);
             AccountDao toAccountAfter = DataBaseSteps.getAccountById((long) toAccount);
 
@@ -179,7 +173,6 @@ public class TransferTest extends BaseTest {
         @MethodSource("iteration1.api.TransferTest#provideValidTransferToAnotherUserData")
         @DisplayName("TC-TRF-002: User can transfer to another user - DB verification")
         void userCanTransferToAnotherUserTest(double depositAmount, double transferAmount) {
-            // GIVEN
             String user1Token = createUserAndGetAuth("Sd");
             int fromAccount = createAccountAndTrack(user1Token, currentUserId1);
 
@@ -191,10 +184,8 @@ public class TransferTest extends BaseTest {
             double fromInitialBalance = getAccountBalanceFromDb(fromAccount);
             double toInitialBalance = getAccountBalanceFromDb(toAccount);
 
-            // WHEN
             transfer(user1Token, fromAccount, toAccount, transferAmount);
 
-            // THEN - Database verification
             AccountDao fromAccountAfter = DataBaseSteps.getAccountById((long) fromAccount);
             AccountDao toAccountAfter = DataBaseSteps.getAccountById((long) toAccount);
 
@@ -207,7 +198,6 @@ public class TransferTest extends BaseTest {
         @Test
         @DisplayName("TC-TRF-003: User can transfer maximum allowed amount (10000.00)")
         void userCanTransferMaxLimitAmountTest() {
-            // GIVEN
             String token = createUserAndGetAuth("Tr");
             int fromAccount = createAccountAndTrack(token, currentUserId1);
             int toAccount = createAccountAndTrack(token, currentUserId1);
@@ -219,10 +209,8 @@ public class TransferTest extends BaseTest {
             double fromInitialBalance = getAccountBalanceFromDb(fromAccount);
             double toInitialBalance = getAccountBalanceFromDb(toAccount);
 
-            // WHEN
             transfer(token, fromAccount, toAccount, 10000.00);
 
-            // THEN - Database verification
             AccountDao fromAccountAfter = DataBaseSteps.getAccountById((long) fromAccount);
             AccountDao toAccountAfter = DataBaseSteps.getAccountById((long) toAccount);
             softly.assertThat(fromAccountAfter.getBalance())
@@ -240,7 +228,6 @@ public class TransferTest extends BaseTest {
         @MethodSource("iteration1.api.TransferTest#provideInvalidTransferData")
         @DisplayName("TC-TRF-004: Invalid transfer amounts are rejected - DB unchanged")
         void userCannotTransferInvalidAmountsTest(double amount, int expectedStatusCode) {
-            // GIVEN
             String token = createUserAndGetAuth("TN");
             int fromAccount = createAccountAndTrack(token, currentUserId1);
             int toAccount = createAccountAndTrack(token, currentUserId1);
@@ -250,10 +237,8 @@ public class TransferTest extends BaseTest {
             double fromInitialBalance = getAccountBalanceFromDb(fromAccount);
             double toInitialBalance = getAccountBalanceFromDb(toAccount);
 
-            // WHEN
             transferAndExpectError(token, fromAccount, toAccount, amount, expectedStatusCode);
 
-            // THEN - Database verification - balances unchanged
             AccountDao fromAccountAfter = DataBaseSteps.getAccountById((long) fromAccount);
             AccountDao toAccountAfter = DataBaseSteps.getAccountById((long) toAccount);
             softly.assertThat(fromAccountAfter.getBalance()).isEqualTo(fromInitialBalance);
@@ -268,21 +253,17 @@ public class TransferTest extends BaseTest {
         @Test
         @DisplayName("TC-TRF-005: Cannot transfer from another user's account - security isolation")
         void userCannotTransferFromAnotherUsersAccountTest() {
-            // GIVEN - User 1 with account
             String user1Token = createUserAndGetAuth("U1");
             int user1Account = createAccountAndTrack(user1Token, currentUserId1);
             UserSteps.deposit(user1Token, user1Account, 1000.0);
             double user1InitialBalance = getAccountBalanceFromDb(user1Account);
 
-            // GIVEN - User 2
             String user2Token = createUserAndGetAuth("U2");
             int user2Account = createAccountAndTrack(user2Token, currentUserId2);
             double user2InitialBalance = getAccountBalanceFromDb(user2Account);
 
-            // WHEN - User 2 tries to transfer from User 1's account
             transferAndExpectError(user2Token, user1Account, user2Account, 100.00, HttpStatus.SC_FORBIDDEN);
 
-            // THEN - Database verification - balances unchanged
             AccountDao user1AccountAfter = DataBaseSteps.getAccountById((long) user1Account);
             AccountDao user2AccountAfter = DataBaseSteps.getAccountById((long) user2Account);
             softly.assertThat(user1AccountAfter.getBalance()).isEqualTo(user1InitialBalance);
@@ -293,7 +274,6 @@ public class TransferTest extends BaseTest {
         @MethodSource("iteration1.api.TransferTest#provideUnauthorizedData")
         @DisplayName("TC-TRF-006: Unauthorized transfer requests are rejected")
         void userCannotTransferWithoutAuthTest(String authHeader, int expectedStatusCode) {
-            // WHEN & THEN
             new CrudRequesters(
                     RequestSpecs.customAuth(authHeader),
                     ResponseSpecs.custom(expectedStatusCode))

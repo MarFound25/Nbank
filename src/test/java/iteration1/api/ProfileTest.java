@@ -26,8 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Profile Management Tests - API & Database Integration")
 public class ProfileTest extends BaseTest {
 
-    // ============ DATA PROVIDERS ============
-
     private static Stream<Arguments> provideValidNameData() {
         return Stream.of(
                 Arguments.of("Old Name", "Anna Smith"),
@@ -40,13 +38,13 @@ public class ProfileTest extends BaseTest {
 
     private static Stream<Arguments> provideInvalidNameData() {
         return Stream.of(
-                Arguments.of("Valid Name", "John"),              // too short (менее 5 символов)
-                Arguments.of("Valid Name", "John Peter Smith"),  // too long (более 20 символов)
-                Arguments.of("Valid Name", "John 123"),          // contains digits
-                Arguments.of("Valid Name", "John@ Doe"),         // contains special chars
-                Arguments.of("Valid Name", ""),                  // empty
-                Arguments.of("Valid Name", " "),                 // space only
-                Arguments.of("Valid Name", "  ")                 // multiple spaces
+                Arguments.of("Valid Name", "John"),
+                Arguments.of("Valid Name", "John Peter Smith"),
+                Arguments.of("Valid Name", "John 123"),
+                Arguments.of("Valid Name", "John@ Doe"),
+                Arguments.of("Valid Name", ""),
+                Arguments.of("Valid Name", " "),
+                Arguments.of("Valid Name", "  ")
         );
     }
 
@@ -58,7 +56,6 @@ public class ProfileTest extends BaseTest {
         );
     }
 
-    // ============ HELPER METHODS ============
 
     private String currentUsername;
     private Long currentUserId;
@@ -116,8 +113,6 @@ public class ProfileTest extends BaseTest {
                 .put(Endpoint.CUSTOMER_PROFILE, updateRequest);
     }
 
-    // ============ POSITIVE TESTS ============
-
     @Nested
     @DisplayName("Positive Scenarios with Database Verification")
     class PositiveTests {
@@ -126,33 +121,25 @@ public class ProfileTest extends BaseTest {
         @MethodSource("iteration1.api.ProfileTest#provideValidNameData")
         @DisplayName("TC-PROF-001: User can change name - API and DB consistency")
         void userCanChangeNameWithValidDataTest(String oldName, String newName) {
-            // GIVEN
             String token = createUserAndGetAuth(oldName);
 
-            // Get user from DB before update
             UserDao userBefore = DataBaseSteps.getUserByUsername(currentUsername);
             assertThat(userBefore.getName()).isEqualTo(oldName);
             LocalDateTime updatedAtBefore = userBefore.getUpdatedAt();
 
-            // WHEN
             updateUserName(token, newName);
 
-            // THEN - API verification
             ProfileResponse profile = getProfile(token);
             assertThat(profile.getName()).isEqualTo(newName);
 
-            // THEN - Database verification ★ КОНСПЕКТ ★
             UserDao userAfter = DataBaseSteps.getUserByUsername(currentUsername);
 
-            // Сравнение DTO и DAO через компаратор
             DaoAndModelAssertions.assertThat(profile, userAfter).matches();
 
-            // Проверка updated_at (из конспекта)
             assertThat(userAfter.getUpdatedAt())
                     .as("updated_at should be changed after profile update")
                     .isAfter(updatedAtBefore);
 
-            // created_at не должен измениться
             assertThat(userAfter.getCreatedAt())
                     .as("created_at should remain unchanged")
                     .isEqualTo(userCreatedAt);
@@ -161,53 +148,39 @@ public class ProfileTest extends BaseTest {
         @Test
         @DisplayName("TC-PROF-002: User can get own profile - data matches database")
         void userCanGetOwnProfileTest() {
-            // GIVEN
             String expectedName = "John Doe";
             String token = createUserAndGetAuth(expectedName);
 
-            // WHEN
             ProfileResponse profile = getProfile(token);
 
-            // THEN - API verification
             assertThat(profile.getName()).isEqualTo(expectedName);
             assertThat(profile.getUsername()).isEqualTo(currentUsername);
             assertThat(profile.getId()).isEqualTo(currentUserId);
 
-            // THEN - Database verification ★ КОНСПЕКТ ★
             UserDao userDao = DataBaseSteps.getUserByUsername(currentUsername);
-
-            // Одна строка вместо множества assertThat!
             DaoAndModelAssertions.assertThat(profile, userDao).matches();
         }
 
         @Test
         @DisplayName("TC-PROF-003: User can change name multiple times - DB tracks updates")
         void userCanChangeNameMultipleTimesTest() {
-            // GIVEN
             String token = createUserAndGetAuth("Initial Name");
 
-            // WHEN - First change
             updateUserName(token, "First Change");
             ProfileResponse profile1 = getProfile(token);
 
-            // THEN
             assertThat(profile1.getName()).isEqualTo("First Change");
 
-            // WHEN - Second change
             updateUserName(token, "Second Change");
             ProfileResponse profile2 = getProfile(token);
 
-            // THEN
             assertThat(profile2.getName()).isEqualTo("Second Change");
 
-            // Database verification ★ КОНСПЕКТ ★
             UserDao userDao = DataBaseSteps.getUserByUsername(currentUsername);
             assertThat(userDao.getName()).isEqualTo("Second Change");
             DaoAndModelAssertions.assertThat(profile2, userDao).matches();
         }
     }
-
-    // ============ NEGATIVE TESTS ============
 
     @Nested
     @DisplayName("Negative Scenarios - Validation with DB Verification")
@@ -217,20 +190,16 @@ public class ProfileTest extends BaseTest {
         @MethodSource("iteration1.api.ProfileTest#provideInvalidNameData")
         @DisplayName("TC-PROF-004: Invalid name changes are rejected - DB unchanged")
         void userCannotChangeNameWithInvalidDataTest(String oldName, String invalidName) {
-            // GIVEN
             String token = createUserAndGetAuth(oldName);
             UserDao userBefore = DataBaseSteps.getUserByUsername(currentUsername);
             LocalDateTime updatedAtBefore = userBefore.getUpdatedAt();
             String originalName = userBefore.getName();
 
-            // WHEN
             updateUserNameAndExpectBadRequest(token, invalidName);
 
-            // THEN - API verification (get profile and check name unchanged)
             ProfileResponse profile = getProfile(token);
             assertThat(profile.getName()).isEqualTo(originalName);
 
-            // THEN - Database verification - data unchanged ★ КОНСПЕКТ ★
             UserDao userAfter = DataBaseSteps.getUserByUsername(currentUsername);
 
             assertThat(userAfter.getName())
@@ -245,7 +214,6 @@ public class ProfileTest extends BaseTest {
         @Test
         @DisplayName("TC-PROF-005: Cannot update profile with null name")
         void userCannotUpdateProfileWithNullNameTest() {
-            // GIVEN
             String token = createUserAndGetAuth("Original Name");
             UserDao userBefore = DataBaseSteps.getUserByUsername(currentUsername);
             String originalName = userBefore.getName();
@@ -254,19 +222,15 @@ public class ProfileTest extends BaseTest {
                     .name(null)
                     .build();
 
-            // WHEN & THEN
             new CrudRequesters(
                     RequestSpecs.authWithToken(token),
                     ResponseSpecs.requestReturnsBadRequest())
                     .put(Endpoint.CUSTOMER_PROFILE, updateRequest);
 
-            // THEN - Database unchanged ★ КОНСПЕКТ ★
             UserDao userAfter = DataBaseSteps.getUserByUsername(currentUsername);
             assertThat(userAfter.getName()).isEqualTo(originalName);
         }
     }
-
-    // ============ SECURITY TESTS ============
 
     @Nested
     @DisplayName("Security & Authorization Tests")
@@ -276,10 +240,8 @@ public class ProfileTest extends BaseTest {
         @MethodSource("iteration1.api.ProfileTest#provideUnauthorizedData")
         @DisplayName("TC-PROF-006: Unauthorized requests are rejected")
         void userCannotAccessProfileWithoutAuthTest(String authHeader, int expectedStatusCode) {
-            // GIVEN - Create user first
             String token = createUserAndGetAuth("Test User");
 
-            // WHEN & THEN - Try to get profile with invalid auth
             new CrudRequesters(
                     RequestSpecs.customAuth(authHeader),
                     ResponseSpecs.custom(expectedStatusCode))
@@ -289,7 +251,6 @@ public class ProfileTest extends BaseTest {
         @Test
         @DisplayName("TC-PROF-007: Cannot get profile without authentication")
         void userCannotGetProfileWithoutAuthTest() {
-            // WHEN & THEN
             new CrudRequesters(
                     RequestSpecs.noAuthSpec(),
                     ResponseSpecs.requestReturnsUnauthorized())
@@ -299,7 +260,7 @@ public class ProfileTest extends BaseTest {
         @Test
         @DisplayName("TC-PROF-008: Cannot get profile with invalid token")
         void userCannotGetProfileWithInvalidTokenTest() {
-            // WHEN & THEN
+
             new CrudRequesters(
                     RequestSpecs.authWithToken("invalid.token.here"),
                     ResponseSpecs.requestReturnsUnauthorized())
@@ -309,12 +270,10 @@ public class ProfileTest extends BaseTest {
         @Test
         @DisplayName("TC-PROF-009: Cannot update profile without authentication")
         void userCannotUpdateProfileWithoutAuthTest() {
-            // GIVEN
             UpdateProfileRequest updateRequest = UpdateProfileRequest.builder()
                     .name("New Name")
                     .build();
 
-            // WHEN & THEN
             new CrudRequesters(
                     RequestSpecs.noAuthSpec(),
                     ResponseSpecs.requestReturnsUnauthorized())
@@ -324,11 +283,9 @@ public class ProfileTest extends BaseTest {
         @Test
         @DisplayName("TC-PROF-010: One user cannot update another user's profile")
         void userCannotUpdateAnotherUsersProfileTest() {
-            // GIVEN - User 1
             String user1Token = createUserAndGetAuth("User One");
             Long user1Id = currentUserId;
 
-            // GIVEN - User 2 (создаём отдельно)
             String user2Username = RandomData.getUsername();
             String user2Password = RandomData.getPassword();
             CreateUserRequest user2Request = CreateUserRequest.builder()
@@ -342,16 +299,10 @@ public class ProfileTest extends BaseTest {
             trackUser(user2Dao.getId());
             String user2Token = UserSteps.loginAndGetToken(user2Username, user2Password);
 
-            // Get User 1's original data from DB
             UserDao user1Before = DataBaseSteps.getUserById(user1Id);
             String originalName = user1Before.getName();
             LocalDateTime updatedAtBefore = user1Before.getUpdatedAt();
 
-            // WHEN - User 2 tries to update User 1's profile (there's no endpoint for that)
-            // This test verifies that the API doesn't allow cross-user updates
-            // The endpoint /customer/profile only works for the authenticated user
-
-            // THEN - User 1's data unchanged in DB
             UserDao user1After = DataBaseSteps.getUserById(user1Id);
             assertThat(user1After.getName()).isEqualTo(originalName);
             assertThat(user1After.getUpdatedAt()).isEqualTo(updatedAtBefore);

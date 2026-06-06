@@ -87,7 +87,6 @@ public class DataBaseSteps {
         }
     }
 
-    // ============ ДОБАВЬ ЭТОТ МЕТОД ============
     public static void cleanupTestData(List<Long> accountIds, List<Long> userIds) {
         StepLogger.logVoid("Cleaning up test data", () -> {
             try (Connection conn = DriverManager.getConnection(
@@ -96,17 +95,14 @@ public class DataBaseSteps {
                     Config.getProperty("db.password"))) {
                 conn.setAutoCommit(false);
 
-                // Удаляем транзакции и аккаунты
                 if (accountIds != null && !accountIds.isEmpty()) {
                     for (Long id : accountIds) {
-                        // Удаляем связанные транзакции
                         try (PreparedStatement stmt = conn.prepareStatement(
                                 "DELETE FROM transactions WHERE account_id = ? OR related_account_id = ?")) {
                             stmt.setLong(1, id);
                             stmt.setLong(2, id);
                             stmt.executeUpdate();
                         }
-                        // Удаляем аккаунт
                         try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM accounts WHERE id = ?")) {
                             stmt.setLong(1, id);
                             stmt.executeUpdate();
@@ -114,7 +110,6 @@ public class DataBaseSteps {
                     }
                 }
 
-                // Удаляем пользователей
                 if (userIds != null && !userIds.isEmpty()) {
                     for (Long id : userIds) {
                         try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM customers WHERE id = ?")) {
