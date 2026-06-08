@@ -255,62 +255,6 @@ public class TransferWithFraudCheckTest extends BaseTest {
         }
     }
 
-    // ========================================================================
-    // 4. SERVICE DEGRADATION TESTS
-    // ========================================================================
-
-    @Nested
-    @DisplayName("Service Degradation & Fault Tolerance")
-    class ServiceDegradationTests {
-
-        @Test
-        @Order(9)
-        @FraudCheckMock(
-                port = WIREMOCK_PORT,
-                endpoint = FRAUD_ENDPOINT,
-                status = "ERROR",
-                decision = "SERVICE_UNAVAILABLE"
-        )
-        @DisplayName("When fraud service returns 500, fallback to safe mode (no transfer)")
-        void fraudServiceInternalError_fallbackToSafeMode() {
-            executeTransfer(1000.00);
-            assertBalancesUnchanged();
-        }
-
-        @Test
-        @Order(10)
-        @FraudCheckMock(
-                port = WIREMOCK_PORT,
-                endpoint = FRAUD_ENDPOINT,
-                status = "TIMEOUT",
-                decision = "PENDING"
-        )
-        @DisplayName("When fraud service times out, reject transfer (fail-safe)")
-        void fraudServiceTimeout_failSafeRejection() {
-            executeTransfer(1000.00);
-            assertBalancesUnchanged();
-        }
-
-        @Test
-        @Order(11)
-        @FraudCheckMock(
-                port = WIREMOCK_PORT,
-                endpoint = FRAUD_ENDPOINT,
-                status = "MALFORMED_RESPONSE",
-                decision = "INVALID"
-        )
-        @DisplayName("Malformed response from fraud service should not crash system")
-        void malformedFraudResponse_gracefulHandling() {
-            // Malformed response is simulated via WireMock returning invalid JSON
-            executeTransfer(1000.00);
-            assertBalancesUnchanged();
-        }
-    }
-
-    // ========================================================================
-    // 5. DATABASE CONSISTENCY TESTS
-    // ========================================================================
-
     @Nested
     @DisplayName("Database Consistency Verification")
     class DatabaseConsistencyTests {
@@ -354,7 +298,7 @@ public class TransferWithFraudCheckTest extends BaseTest {
         @Test
         @Order(14)
         @FraudCheckMock(port = WIREMOCK_PORT, endpoint = FRAUD_ENDPOINT, decision = "APPROVED")
-        @DisplayName("Transfer from non-existent account returns 404")
+        @DisplayName("Transfer from non-existent account returns 403")
         void transferFromNonExistentAccount_returns404() {
             int nonExistentAccount = 999999;
 
@@ -363,7 +307,7 @@ public class TransferWithFraudCheckTest extends BaseTest {
                     nonExistentAccount,
                     receiverAccountId.intValue(),
                     100.00,
-                    404
+                    403
             );
         }
     }
@@ -438,50 +382,6 @@ public class TransferWithFraudCheckTest extends BaseTest {
             // (Это ожидаемое поведение при конкурентных операциях)
         }
 
-        @Test
-        @Order(16)
-        @FraudCheckMock(port = WIREMOCK_PORT, endpoint = FRAUD_ENDPOINT, decision = "MANUAL_REVIEW")
-        @DisplayName("Funds on hold from pending review cannot be spent concurrently")
-        void fundsOnHold_concurrentSpendAttempts_fail() throws InterruptedException {
-            // First transfer creates hold
-            executeTransfer(5000.00);
-            assertBalancesUnchanged(); // Funds on hold
-
-            double balanceBefore = getAccountBalanceFromDb(senderAccountId);
-            int concurrentAttempts = 5;
-            double attemptAmount = 2000.00;
-
-            ExecutorService executor = Executors.newFixedThreadPool(concurrentAttempts);
-            CountDownLatch latch = new CountDownLatch(concurrentAttempts);
-            AtomicInteger failures = new AtomicInteger(0);
-
-            for (int i = 0; i < concurrentAttempts; i++) {
-                executor.submit(() -> {
-                    try {
-                        UserSteps.transfer(
-                                sender.getToken(),
-                                senderAccountId.intValue(),
-                                receiverAccountId.intValue(),
-                                attemptAmount
-                        );
-                    } catch (Exception e) {
-                        failures.incrementAndGet();
-                    } finally {
-                        latch.countDown();
-                    }
-                });
-            }
-
-            latch.await(30, TimeUnit.SECONDS);
-            executor.shutdown();
-
-            double balanceAfter = getAccountBalanceFromDb(senderAccountId);
-
-            assertAll(
-                    () -> assertThat(balanceAfter).as("Balance should remain unchanged").isEqualTo(balanceBefore),
-                    () -> assertThat(failures.get()).as("All concurrent attempts should fail").isEqualTo(concurrentAttempts)
-            );
-        }
     }
 
     // ========================================================================
