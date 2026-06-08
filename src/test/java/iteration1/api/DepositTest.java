@@ -2,8 +2,10 @@ package iteration1.api;
 
 import api.dao.AccountDao;
 import api.dao.UserDao;
+import api.dao.comparison.DaoAndModelAssertions;
 import configs.Config;
 import generators.RandomData;
+import models.AccountDTO;
 import models.CreateUserRequest;
 import models.UserRole;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import requests.steps.AdminSteps;
 import requests.steps.DataBaseSteps;
 import requests.steps.UserSteps;
+
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.within;
@@ -89,9 +92,6 @@ public class DepositTest extends BaseTest {
 
             UserSteps.deposit(token, accountId, amount);
 
-            // Примечание: API запрос GET после внесения депозита возвращает битый ответ
-            // (проблема на стороне бэкенда: слишком большой ответ с циклическими ссылками)
-            // Использовала базу данных как главный источник правды - так надежнее и быстрее
             AccountDao accountAfter = DataBaseSteps.getAccountById((long) accountId);
 
             softly.assertThat(accountAfter.getBalance())
@@ -101,6 +101,9 @@ public class DepositTest extends BaseTest {
             softly.assertThat(accountAfter.getBalance())
                     .as("Balance should never be negative")
                     .isGreaterThanOrEqualTo(0);
+
+            AccountDTO apiAccount = UserSteps.getAccountById(token, accountId);
+            DaoAndModelAssertions.assertThat(apiAccount, accountAfter).matches();
         }
     }
 
@@ -122,6 +125,9 @@ public class DepositTest extends BaseTest {
 
             AccountDao accountAfter = DataBaseSteps.getAccountById((long) accountId);
             softly.assertThat(accountAfter.getBalance()).isEqualTo(initialBalance);
+
+            AccountDTO apiAccount = UserSteps.getAccountById(token, accountId);
+            DaoAndModelAssertions.assertThat(apiAccount, accountAfter).matches();
         }
     }
 }

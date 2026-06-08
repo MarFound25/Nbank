@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public class UserDao {
     private Long id;
     private String username;
-    private String passwordHash;  // зашифрованный пароль из БД
+    private String passwordHash;
     private String role;
     private String name;
     private LocalDateTime createdAt;

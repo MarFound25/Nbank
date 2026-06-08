@@ -1,9 +1,11 @@
 package iteration1.api;
 
 import api.dao.UserDao;
+import api.dao.comparison.DaoAndModelAssertions;
 import configs.Config;
 import generators.RandomData;
 import models.CreateUserRequest;
+import models.LoginUserResponse;
 import models.UserRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -44,14 +46,13 @@ public class LoginUserTest extends BaseTest {
             String adminUsername = Config.getAdminUsername();
             String adminPassword = Config.getAdminPassword();
 
-            String token = UserSteps.loginAndGetToken(adminUsername, adminPassword);
+            LoginUserResponse loginResponse = UserSteps.loginAndGetResponse(adminUsername, adminPassword);
 
-            softly.assertThat(token).isNotNull();
-            softly.assertThat(token).startsWith("Basic ");
+            softly.assertThat(loginResponse.getToken()).isNotNull();
+            softly.assertThat(loginResponse.getToken()).startsWith("Basic ");
 
             UserDao adminDao = DataBaseSteps.getUserByUsername(adminUsername);
-            softly.assertThat(adminDao).isNotNull();
-            softly.assertThat(adminDao.getRole()).isEqualTo("ADMIN");
+            DaoAndModelAssertions.assertThat(loginResponse, adminDao).matches();
         }
 
         @Test
@@ -61,16 +62,13 @@ public class LoginUserTest extends BaseTest {
             String password = RandomData.getPassword();
             createUserAndTrack(username, password);
 
-            String token = UserSteps.loginAndGetToken(username, password);
+            LoginUserResponse loginResponse = UserSteps.loginAndGetResponse(username, password);
 
-            softly.assertThat(token).isNotNull();
-            softly.assertThat(token).startsWith("Basic ");
+            softly.assertThat(loginResponse.getToken()).isNotNull();
+            softly.assertThat(loginResponse.getToken()).startsWith("Basic ");
 
             UserDao userDao = DataBaseSteps.getUserByUsername(username);
-            softly.assertThat(userDao).isNotNull();
-            softly.assertThat(userDao.getUsername()).isEqualTo(username);
-            softly.assertThat(userDao.getPasswordHash()).isNotEqualTo(password);
-            softly.assertThat(userDao.getPasswordHash()).matches("^\\$2[ayb]\\$.{56}$");
+            DaoAndModelAssertions.assertThat(loginResponse, userDao).matches();
         }
     }
 

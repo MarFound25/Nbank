@@ -5,6 +5,7 @@ import io.restassured.response.Response;
 import models.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import requests.skelethon.requesters.CrudRequesters;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 import java.util.List;
@@ -50,6 +51,42 @@ public class UserSteps {
                 .spec(ResponseSpecs.requestReturnsOK())
                 .extract()
                 .header("Authorization");
+    }
+
+    public static AccountDTO getAccountById(String token, int accountId) {
+        return new CrudRequesters(
+                RequestSpecs.authWithToken(token),
+                ResponseSpecs.requestReturnsOK())
+                .getWithValidation(Endpoint.ACCOUNTS + "/" + accountId)
+                .extract()
+                .as(AccountDTO.class);
+    }
+
+    public static LoginUserResponse loginAndGetResponse(String username, String password) {
+        LoginUserRequest loginRequest = LoginUserRequest.builder()
+                .username(username)
+                .password(password)
+                .build();
+
+        String token = given()
+                .spec(RequestSpecs.unauthSpec())
+                .body(loginRequest)
+                .when()
+                .post(Endpoint.AUTH_LOGIN)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK())
+                .extract()
+                .header("Authorization");
+
+        return LoginUserResponse.builder()
+                .username(username)
+                .role(getUserRole(username))
+                .build();
+    }
+
+
+    private static String getUserRole(String username) {
+        return "USER";
     }
 
     public static void loginAndExpectUnauthorized(String username, String password) {

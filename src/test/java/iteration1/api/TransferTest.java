@@ -2,6 +2,7 @@ package iteration1.api;
 
 import api.dao.AccountDao;
 import api.dao.UserDao;
+import api.dao.comparison.DaoAndModelAssertions;
 import configs.Config;
 import endpoints.Endpoint;
 import generators.RandomData;
@@ -167,6 +168,13 @@ public class TransferTest extends BaseTest {
                     .isCloseTo(fromInitialBalance - transferAmount, within(BALANCE_DELTA));
             softly.assertThat(toAccountAfter.getBalance())
                     .isCloseTo(toInitialBalance + transferAmount, within(BALANCE_DELTA));
+
+
+            AccountDTO fromApiAccount = UserSteps.getAccountById(token, fromAccount);
+            AccountDTO toApiAccount = UserSteps.getAccountById(token, toAccount);
+
+            DaoAndModelAssertions.assertThat(fromApiAccount, fromAccountAfter).matches();
+            DaoAndModelAssertions.assertThat(toApiAccount, toAccountAfter).matches();
         }
 
         @ParameterizedTest
@@ -193,6 +201,12 @@ public class TransferTest extends BaseTest {
                     .isCloseTo(fromInitialBalance - transferAmount, within(BALANCE_DELTA));
             softly.assertThat(toAccountAfter.getBalance())
                     .isCloseTo(toInitialBalance + transferAmount, within(BALANCE_DELTA));
+
+            AccountDTO fromApiAccount = UserSteps.getAccountById(user1Token, fromAccount);
+            AccountDTO toApiAccount = UserSteps.getAccountById(user2Token, toAccount);
+
+            DaoAndModelAssertions.assertThat(fromApiAccount, fromAccountAfter).matches();
+            DaoAndModelAssertions.assertThat(toApiAccount, toAccountAfter).matches();
         }
 
         @Test
@@ -213,10 +227,17 @@ public class TransferTest extends BaseTest {
 
             AccountDao fromAccountAfter = DataBaseSteps.getAccountById((long) fromAccount);
             AccountDao toAccountAfter = DataBaseSteps.getAccountById((long) toAccount);
+
             softly.assertThat(fromAccountAfter.getBalance())
                     .isCloseTo(fromInitialBalance - 10000.0, within(BALANCE_DELTA));
             softly.assertThat(toAccountAfter.getBalance())
                     .isCloseTo(toInitialBalance + 10000.0, within(BALANCE_DELTA));
+
+            AccountDTO fromApiAccount = UserSteps.getAccountById(token, fromAccount);
+            AccountDTO toApiAccount = UserSteps.getAccountById(token, toAccount);
+
+            DaoAndModelAssertions.assertThat(fromApiAccount, fromAccountAfter).matches();
+            DaoAndModelAssertions.assertThat(toApiAccount, toAccountAfter).matches();
         }
     }
 
@@ -241,8 +262,15 @@ public class TransferTest extends BaseTest {
 
             AccountDao fromAccountAfter = DataBaseSteps.getAccountById((long) fromAccount);
             AccountDao toAccountAfter = DataBaseSteps.getAccountById((long) toAccount);
+
             softly.assertThat(fromAccountAfter.getBalance()).isEqualTo(fromInitialBalance);
             softly.assertThat(toAccountAfter.getBalance()).isEqualTo(toInitialBalance);
+
+            AccountDTO fromApiAccount = UserSteps.getAccountById(token, fromAccount);
+            AccountDTO toApiAccount = UserSteps.getAccountById(token, toAccount);
+
+            DaoAndModelAssertions.assertThat(fromApiAccount, fromAccountAfter).matches();
+            DaoAndModelAssertions.assertThat(toApiAccount, toAccountAfter).matches();
         }
     }
 
@@ -266,8 +294,15 @@ public class TransferTest extends BaseTest {
 
             AccountDao user1AccountAfter = DataBaseSteps.getAccountById((long) user1Account);
             AccountDao user2AccountAfter = DataBaseSteps.getAccountById((long) user2Account);
+
             softly.assertThat(user1AccountAfter.getBalance()).isEqualTo(user1InitialBalance);
             softly.assertThat(user2AccountAfter.getBalance()).isEqualTo(user2InitialBalance);
+
+            AccountDTO user1ApiAccount = UserSteps.getAccountById(user1Token, user1Account);
+            AccountDTO user2ApiAccount = UserSteps.getAccountById(user2Token, user2Account);
+
+            DaoAndModelAssertions.assertThat(user1ApiAccount, user1AccountAfter).matches();
+            DaoAndModelAssertions.assertThat(user2ApiAccount, user2AccountAfter).matches();
         }
 
         @ParameterizedTest

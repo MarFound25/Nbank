@@ -2,6 +2,7 @@ package iteration1.api;
 
 import api.dao.AccountDao;
 import api.dao.UserDao;
+import api.dao.comparison.DaoAndModelAssertions;
 import generators.RandomData;
 import models.*;
 import org.junit.jupiter.api.DisplayName;
@@ -15,8 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static org.assertj.core.api.AssertionsForClassTypes.within;
 
 @DisplayName("Account Management Tests")
 public class CreateAccountTest extends BaseTest {
@@ -64,10 +63,7 @@ public class CreateAccountTest extends BaseTest {
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("Account not found in API response"));
 
-            softly.assertThat(apiAccount).isNotNull();
-            softly.assertThat(accountDao.getUserId()).isEqualTo(currentUserId);
-            softly.assertThat(accountDao.getBalance()).isEqualTo(0.0);
-            softly.assertThat(accountDao.getAccountNumber()).isNotNull();
+            DaoAndModelAssertions.assertThat(apiAccount, accountDao).matches();
 
             trackAccount(accountDao.getId());
         }
@@ -96,9 +92,7 @@ public class CreateAccountTest extends BaseTest {
                         .as("Account %d not found in database", apiAccount.getId())
                         .isNotNull();
 
-                softly.assertThat(apiAccount.getBalance())
-                        .as("Balance mismatch for account %d", apiAccount.getId())
-                        .isCloseTo(correspondingDbAccount.getBalance(), within(0.01));
+                DaoAndModelAssertions.assertThat(apiAccount, correspondingDbAccount).matches();
             });
 
             trackAccount((long) account1);
