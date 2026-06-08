@@ -1,6 +1,7 @@
 package requests.steps;
 
-import endpoints.Endpoint;
+import configs.Config;
+import requests.skelethon.Endpoint;
 import generators.RandomData;
 import models.*;
 import org.hamcrest.Matchers;
@@ -14,11 +15,26 @@ import static io.restassured.RestAssured.given;
 
 public class AdminSteps {
 
+    private static final String ADMIN_USERNAME = "admin";
+    private static final String ADMIN_PASSWORD = "admin";
+
     public static CreateUserResponse createUser(CreateUserRequest request) {
-        return new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.entityWasCreated())
-                .create(request)
+        System.out.println("=== [DEBUG] Full URL: " + Config.getBaseUrl() + Endpoint.ADMIN_USERS);
+        System.out.println("=== [DEBUG] Request body: " + request);
+        System.out.println("=== [DEBUG] Auth header: " + Config.getAdminBasicAuth());
+
+        CrudRequesters crudRequester = new CrudRequesters(
+                RequestSpecs.adminSpec(),
+                Endpoint.ADMIN_USERS,
+                ResponseSpecs.entityWasCreated()
+        );
+
+        CreateUserResponse response = crudRequester.create(request)
                 .extract()
                 .as(CreateUserResponse.class);
+
+        System.out.println("=== [DEBUG] Response: " + response);
+        return response;
     }
 
     public static CreateUserRequest createUserRequest() {
@@ -70,49 +86,65 @@ public class AdminSteps {
     }
 
     public static void getAllUsersAndExpectForbidden(String token) {
-        new CrudRequesters(RequestSpecs.authWithToken(token), ResponseSpecs.requestReturnsForbidden())
-                .readAll();
+        new CrudRequesters(
+                RequestSpecs.authWithToken(token),
+                Endpoint.ADMIN_USERS,
+                ResponseSpecs.requestReturnsForbidden()
+        ).readAll();
     }
 
-
     public static void deleteUser(long userId) {
-        new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsOK())
-                .delete(userId);
+        new CrudRequesters(
+                RequestSpecs.adminSpec(),
+                Endpoint.ADMIN_USER_BY_ID,
+                ResponseSpecs.requestReturnsOK()
+        ).delete(userId);
     }
 
     public static void deleteUserAndExpectNotFound(long userId) {
-        new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsNotFound())
-                .delete(userId);
+        new CrudRequesters(
+                RequestSpecs.adminSpec(),
+                Endpoint.ADMIN_USER_BY_ID,
+                ResponseSpecs.requestReturnsNotFound()
+        ).delete(userId);
     }
 
     public static void deleteUserAndExpectForbidden(String token, long userId) {
-        new CrudRequesters(RequestSpecs.authWithToken(token), ResponseSpecs.requestReturnsForbidden())
-                .delete(userId);
+        new CrudRequesters(
+                RequestSpecs.authWithToken(token),
+                Endpoint.ADMIN_USER_BY_ID,
+                ResponseSpecs.requestReturnsForbidden()
+        ).delete(userId);
     }
 
     public static void createUserAndExpectBadRequest(CreateUserRequest request) {
-        new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsBadRequest())
-                .create(request);
+        new CrudRequesters(
+                RequestSpecs.adminSpec(),
+                Endpoint.ADMIN_USERS,
+                ResponseSpecs.requestReturnsBadRequest()
+        ).create(request);
     }
 
     public static void createUserAndExpectBadRequest(CreateUserRequest request, String expectedError) {
         new CrudRequesters(
                 RequestSpecs.adminSpec(),
-                ResponseSpecs.requestReturnsBadRequest(expectedError))
-                .create(request);
+                Endpoint.ADMIN_USERS,
+                ResponseSpecs.requestReturnsBadRequest(expectedError)
+        ).create(request);
     }
 
     public static void createUserAndExpectBadRequest(CreateUserRequest request, String errorKey, String errorValue) {
         new CrudRequesters(
                 RequestSpecs.adminSpec(),
-                ResponseSpecs.requestReturnsBadRequest(errorKey, errorValue))
-                .create(request);
+                Endpoint.ADMIN_USERS,
+                ResponseSpecs.requestReturnsBadRequest(errorKey, errorValue)
+        ).create(request);
     }
 
     public static String getAdminToken() {
         LoginUserRequest loginRequest = LoginUserRequest.builder()
-                .username("admin")
-                .password("admin")
+                .username(ADMIN_USERNAME)
+                .password(ADMIN_PASSWORD)
                 .build();
 
         return given()
@@ -127,14 +159,20 @@ public class AdminSteps {
     }
 
     public static void createUserAndExpectUsernameError(CreateUserRequest request, String expectedError) {
-        new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsBadRequest())
-                .create(request)
+        new CrudRequesters(
+                RequestSpecs.adminSpec(),
+                Endpoint.ADMIN_USERS,
+                ResponseSpecs.requestReturnsBadRequest()
+        ).create(request)
                 .body("username", Matchers.hasItem(expectedError));
     }
 
     public static void createUserAndExpectPasswordError(CreateUserRequest request, String expectedError) {
-        new CrudRequesters(RequestSpecs.adminSpec(), ResponseSpecs.requestReturnsBadRequest())
-                .create(request)
+        new CrudRequesters(
+                RequestSpecs.adminSpec(),
+                Endpoint.ADMIN_USERS,
+                ResponseSpecs.requestReturnsBadRequest()
+        ).create(request)
                 .body("password", Matchers.hasItem(expectedError));
     }
 

@@ -2,7 +2,7 @@ package iteration1.api;
 
 import api.dao.UserDao;
 import api.dao.comparison.DaoAndModelAssertions;
-import endpoints.Endpoint;
+import requests.skelethon.Endpoint;
 import generators.RandomData;
 import models.*;
 import org.junit.jupiter.api.DisplayName;

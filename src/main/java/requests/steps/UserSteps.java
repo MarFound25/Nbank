@@ -1,6 +1,7 @@
 package requests.steps;
 
-import endpoints.Endpoint;
+import configs.Config;
+import requests.skelethon.Endpoint;
 import io.restassured.response.Response;
 import models.*;
 import org.slf4j.Logger;

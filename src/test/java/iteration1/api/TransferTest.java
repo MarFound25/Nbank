@@ -3,7 +3,7 @@ package iteration1.api;
 import api.dao.AccountDao;
 import api.dao.UserDao;
 import configs.Config;
-import endpoints.Endpoint;
+import requests.skelethon.Endpoint;
 import generators.RandomData;
 import models.*;
 import org.apache.http.HttpStatus;

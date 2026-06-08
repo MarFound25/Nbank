@@ -8,7 +8,7 @@ import static io.restassured.RestAssured.given;
 
 public class HttpRequest {
     protected RequestSpecification requestSpec;
-    protected endpoints.Endpoint endpoint;
+    protected requests.skelethon.Endpoint endpoint;
 
     public HttpRequest(RequestSpecification requestSpec) {
         this.requestSpec = requestSpec;
@@ -53,9 +53,17 @@ public class HttpRequest {
     }
 
     public ValidatableResponse postWithValidation(String url, Object body) {
-        return given()
-                .spec(requestSpec)
-                .body(body)
+//        return given()
+//                .spec(requestSpec)
+//                .body(body)
+//                .when()
+//                .post(url)
+//                .then();
+        var request = given().spec(requestSpec);
+        if (body != null) {
+            request.body(body);
+        }
+        return request
                 .when()
                 .post(url)
                 .then();

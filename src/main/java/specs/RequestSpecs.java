@@ -9,6 +9,8 @@ import requests.steps.UserSteps;
 public class RequestSpecs {
 
     public static RequestSpecification adminSpec() {
+        System.out.println("=== [DEBUG] adminSpec - Base URL: " + Config.getBaseUrl());
+
         return new RequestSpecBuilder()
                 .setBaseUri(Config.getBaseUrl())
                 .setContentType(ContentType.JSON)
