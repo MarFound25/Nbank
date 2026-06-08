@@ -8,7 +8,6 @@ import static io.restassured.RestAssured.given;
 
 public class HttpRequest {
     protected RequestSpecification requestSpec;
-    protected requests.skelethon.Endpoint endpoint;
 
     public HttpRequest(RequestSpecification requestSpec) {
         this.requestSpec = requestSpec;

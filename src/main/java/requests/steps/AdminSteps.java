@@ -8,9 +8,7 @@ import org.hamcrest.Matchers;
 import requests.skelethon.requesters.CrudRequesters;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
-
 import java.util.List;
-
 import static io.restassured.RestAssured.given;
 
 public class AdminSteps {
@@ -187,4 +185,56 @@ public class AdminSteps {
                 .jsonPath()
                 .getList("", CreateUserResponse.class);
     }
+
+//    public static void approveTransfer(Long transactionId) {
+//        ApproveTransferRequest request = ApproveTransferRequest.builder()
+//                .transactionId(transactionId)
+//                .approved(true)
+//                .reviewerNotes("Auto-approved by test")
+//                .build();
+//
+//        new CrudRequesters(
+//                RequestSpecs.adminSpec(),
+//                Endpoint.TRANSACTIONS_APPROVE + "/" + transactionId,
+//                ResponseSpecs.requestReturnsOK()
+//        ).put(request);
+//    }
+//
+//    public static void rejectTransfer(Long transactionId) {
+//        ApproveTransferRequest request = ApproveTransferRequest.builder()
+//                .transactionId(transactionId)
+//                .approved(false)
+//                .reviewerNotes("Rejected by test")
+//                .build();
+//
+//        new CrudRequesters(
+//                RequestSpecs.adminSpec(),
+//                Endpoint.TRANSACTIONS_REJECT + "/" + transactionId,
+//                ResponseSpecs.requestReturnsOK()
+//        ).put(request);
+//    }
+//
+//    public static TransferStatus getTransactionStatus(Long transactionId) {
+//        return new CrudRequesters(
+//                RequestSpecs.adminSpec(),
+//                Endpoint.TRANSACTIONS + "/" + transactionId,
+//                ResponseSpecs.requestReturnsOK()
+//        ).getWithValidation()
+//                .extract()
+//                .as(TransferStatus.class);
+//    }
+//
+//    public static void approveTransferAndExpectError(Long transactionId, int expectedStatusCode) {
+//        ApproveTransferRequest request = ApproveTransferRequest.builder()
+//                .transactionId(transactionId)
+//                .approved(true)
+//                .reviewerNotes("Auto-approved by test")
+//                .build();
+//
+//        new CrudRequesters(
+//                RequestSpecs.adminSpec(),
+//                Endpoint.TRANSACTIONS_APPROVE + "/" + transactionId,
+//                ResponseSpecs.custom(expectedStatusCode)
+//        ).put(request);
+//    }
 }

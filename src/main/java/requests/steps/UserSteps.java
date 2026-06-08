@@ -114,22 +114,30 @@ public class UserSteps {
                 .as(ProfileResponse.class);
     }
 
+    // ==================== ИСПРАВЛЕННЫЙ МЕТОД DEPOSIT С ЛОГИРОВАНИЕМ ====================
     public static void deposit(String token, int accountId, double amount) {
+        String requestBody = String.format(Locale.US, "{\"id\": %d, \"balance\": %.2f}", accountId, amount);
+
+        System.out.println("=== [DEPOSIT DEBUG] ===");
+        System.out.println("URL: " + Config.getBaseUrl() + Endpoint.ACCOUNTS_DEPOSIT);
+        System.out.println("Request body: " + requestBody);
+        System.out.println("Token: " + (token != null ? token.substring(0, Math.min(50, token.length())) + "..." : "null"));
+        System.out.println("Account ID: " + accountId);
+        System.out.println("Amount: " + amount);
+
         Response response = given()
                 .spec(RequestSpecs.authWithToken(token))
-                .body(String.format(Locale.US, "{\"id\": %d, \"balance\": %.2f}", accountId, amount))
+                .body(requestBody)
                 .when()
                 .post(Endpoint.ACCOUNTS_DEPOSIT);
 
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("Deposit failed. Status: " + response.statusCode());
-        }
+        System.out.println("Response status: " + response.statusCode());
+        System.out.println("Response body: " + response.asString());
+        System.out.println("=== [DEPOSIT DEBUG END] ===");
 
-        try {
-            response.asString();
-        } catch (Exception e) {
-            System.err.println("[BACKEND ISSUE] Deposit response malformed: " + e.getMessage());
-            System.err.println("Will verify deposit result via database check.");
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("Deposit failed. Status: " + response.statusCode() +
+                    ", Body: " + response.asString());
         }
     }
 
@@ -230,7 +238,20 @@ public class UserSteps {
                 .spec(ResponseSpecs.requestReturnsUnauthorized());
     }
 
-    public static void transfer(String token, int fromAccount, int toAccount, double amount) {
+    public static TransferResponse transfer(String token, int fromAccount, int toAccount, double amount) {
+        return given()
+                .spec(RequestSpecs.authWithToken(token))
+                .body(String.format(Locale.US, "{\"senderAccountId\": %d, \"receiverAccountId\": %d, \"amount\": %.2f}",
+                        fromAccount, toAccount, amount))
+                .when()
+                .post(Endpoint.ACCOUNTS_TRANSFER)
+                .then()
+                .spec(ResponseSpecs.requestReturnsOK())
+                .extract()
+                .as(TransferResponse.class);
+    }
+
+    public static void transferAndExpectError(String token, int fromAccount, int toAccount, double amount, int expectedStatusCode) {
         given()
                 .spec(RequestSpecs.authWithToken(token))
                 .body(String.format(Locale.US, "{\"senderAccountId\": %d, \"receiverAccountId\": %d, \"amount\": %.2f}",
@@ -238,6 +259,6 @@ public class UserSteps {
                 .when()
                 .post(Endpoint.ACCOUNTS_TRANSFER)
                 .then()
-                .spec(ResponseSpecs.requestReturnsOK());
+                .spec(ResponseSpecs.custom(expectedStatusCode));
     }
 }

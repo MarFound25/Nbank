@@ -125,4 +125,47 @@ public class DataBaseSteps {
             }
         });
     }
+
+    // Добавить в конец файла DataBaseSteps.java
+
+    public static void waitForAccountInDb(Long accountId, long timeoutMs) {
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            try {
+                AccountDao account = getAccountById(accountId);
+                if (account != null) {
+                    System.out.println("Account found in DB: " + accountId);
+                    return;
+                }
+            } catch (Exception e) {
+                // Account not found yet
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        System.out.println("Account not found after timeout: " + accountId);
+    }
+
+    public static void waitForBalanceUpdate(Long accountId, double expectedAmount, long timeoutMs) {
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            AccountDao account = getAccountById(accountId);
+            if (account != null && Math.abs(account.getBalance() - expectedAmount) < 0.01) {
+                System.out.println("Balance updated: " + accountId + " = " + account.getBalance());
+                return;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        System.out.println("Balance not updated after timeout for account: " + accountId);
+    }
+
 }
