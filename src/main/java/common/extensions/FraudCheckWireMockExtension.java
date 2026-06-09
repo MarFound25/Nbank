@@ -38,10 +38,8 @@ public class FraudCheckWireMockExtension implements BeforeEachCallback, AfterEac
         wireMockServer.start();
         WireMock.configureFor("localhost", port);
 
-        // Определяем HTTP статус
         int httpStatus = "ERROR".equals(config.status()) ? 500 : 200;
 
-        // Строим ответ в зависимости от статуса
         if (httpStatus == 500) {
             stubFor(post(urlPathMatching(config.endpoint()))
                     .willReturn(aResponse()
@@ -52,7 +50,7 @@ public class FraudCheckWireMockExtension implements BeforeEachCallback, AfterEac
             stubFor(post(urlPathMatching(config.endpoint()))
                     .willReturn(aResponse()
                             .withStatus(200)
-                            .withFixedDelay(10000) // 10 секунд таймаут
+                            .withFixedDelay(10000)
                             .withBody("{}")));
         } else {
             String responseBody = String.format("{\n" +
