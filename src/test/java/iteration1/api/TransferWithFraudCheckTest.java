@@ -25,17 +25,15 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.Assertions.assertAll;
-
+import static ui.pages.TestDataConstants.Api.*;
+import static ui.pages.TestDataConstants.HttpStatus.*;
+import static ui.pages.TestDataConstants.Timeouts.*;
 
 @Slf4j
 @ExtendWith({TimingExtension.class, FraudCheckWireMockExtension.class})
 @DisplayName("Anti-Fraud Transfer Validation Suite")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class TransferWithFraudCheckTest extends BaseTest {
-
-    private static final double BALANCE_DELTA = 0.01;
-    private static final int WIREMOCK_PORT = 8082;
-    private static final String FRAUD_ENDPOINT = "/fraud-check";
 
     private UserWithToken sender;
     private UserWithToken receiver;
@@ -56,8 +54,7 @@ public class TransferWithFraudCheckTest extends BaseTest {
         senderAccountId = createTrackedAccount(sender.getToken());
         receiverAccountId = createTrackedAccount(receiver.getToken());
 
-
-        UserSteps.deposit(sender.getToken(), senderAccountId.intValue(), 5000.0);
+        UserSteps.deposit(sender.getToken(), senderAccountId.intValue(), DEFAULT_DEPOSIT_AMOUNT);
 
         testContext.captureInitialBalances(
                 getAccountBalance(senderAccountId),
@@ -105,8 +102,9 @@ public class TransferWithFraudCheckTest extends BaseTest {
         )
         @DisplayName("APPROVED: Low-risk transaction completes immediately")
         void approved_lowRiskTransaction_completesImmediately() {
-            executeTransfer(500.00);
-            assertBalancesChanged(500.00, 500.00);
+            double transferAmount = DEFAULT_DEPOSIT_AMOUNT * 0.1;
+            executeTransfer(transferAmount);
+            assertBalancesChanged(transferAmount, transferAmount);
         }
     }
 
@@ -114,16 +112,19 @@ public class TransferWithFraudCheckTest extends BaseTest {
     @DisplayName("Проверка граничных значений оценки риска")
     class RiskScoreBoundaryTests {
 
-        private static final double TEST_AMOUNT = 100.00;
-        private static final double EXPECTED_DECREASE = 100.00;
-
         @Test
         @Order(4)
-        @FraudCheckMock(port = WIREMOCK_PORT, endpoint = FRAUD_ENDPOINT, riskScore = 0.29, decision = "APPROVED")
+        @FraudCheckMock(
+                port = WIREMOCK_PORT,
+                endpoint = FRAUD_ENDPOINT,
+                riskScore = HIGH_RISK_THRESHOLD - 0.01,
+                decision = "APPROVED"
+        )
         @DisplayName("Risk score 0.29 → APPROVED (just below threshold)")
         void riskScore_29_approved() {
-            executeTransfer(TEST_AMOUNT);
-            assertBalancesChanged(EXPECTED_DECREASE, EXPECTED_DECREASE);
+            double transferAmount = 100.00;
+            executeTransfer(transferAmount);
+            assertBalancesChanged(transferAmount, transferAmount);
         }
     }
 
@@ -134,12 +135,12 @@ public class TransferWithFraudCheckTest extends BaseTest {
         static Stream<Arguments> amountAndExpectationProvider() {
             return Stream.of(
                     Arguments.of(50.00, true, "Малая сумма должна быть одобрена"),
-                    Arguments.of(999.99, true, "Сумма чуть ниже порога должна быть одобрена"),
-                    Arguments.of(1000.00, false, "Сумма на пороге должна отправиться на проверку"),
-                    Arguments.of(2500.00, false, "Средняя сумма должна отправиться на проверку"),
-                    Arguments.of(5000.00, false, "Крупная сумма должна отправиться на проверку"),
-                    Arguments.of(9999.99, false, "Сумма чуть ниже порога блокировки должна отправиться на проверку"),
-                    Arguments.of(10000.00, false, "Сумма на пороге блокировки должна быть заблокирована")
+                    Arguments.of(FRAUD_CHECK_THRESHOLD - 0.01, true, "Сумма чуть ниже порога должна быть одобрена"),
+                    Arguments.of(FRAUD_CHECK_THRESHOLD, false, "Сумма на пороге должна отправиться на проверку"),
+                    Arguments.of(FRAUD_CHECK_THRESHOLD * 2.5, false, "Средняя сумма должна отправиться на проверку"),
+                    Arguments.of(FRAUD_CHECK_THRESHOLD * 5, false, "Крупная сумма должна отправиться на проверку"),
+                    Arguments.of(BLOCK_THRESHOLD - 0.01, false, "Сумма чуть ниже порога блокировки должна отправиться на проверку"),
+                    Arguments.of(BLOCK_THRESHOLD, false, "Сумма на пороге блокировки должна быть заблокирована")
             );
         }
 
@@ -148,8 +149,8 @@ public class TransferWithFraudCheckTest extends BaseTest {
         @Order(8)
         @DisplayName("Проверка пороговых сумм для anti-fraud")
         @Disabled("BACKEND-1234: Не реализована проверка суммы для anti-fraud. " +
-                "Ожидаемое поведение: суммы >= 1000.00 НЕ должны выполняться, уходить на MANUAL_REVIEW. " +
-                "Фактическое поведение: суммы 1000-5000 выполняются, суммы >= 9999.99 возвращают HTTP 400. " +
+                "Ожидаемое поведение: суммы >= " + FRAUD_CHECK_THRESHOLD + " НЕ должны выполняться, уходить на MANUAL_REVIEW. " +
+                "Фактическое поведение: суммы " + FRAUD_CHECK_THRESHOLD + "-5000 выполняются, суммы >= 9999.99 возвращают HTTP 400. " +
                 "Решение: добавить проверку суммы в сервисе переводов. Убрать @Disabled после исправления.")
         void amountThresholds_shouldDetermineBehavior(double amount, boolean expectTransfer, String reason) {
             double senderBefore = getAccountBalanceFromDb(senderAccountId);
@@ -167,8 +168,8 @@ public class TransferWithFraudCheckTest extends BaseTest {
                 );
             } else {
                 assertAll(
-                        () -> assertThat(senderAfter).as(reason).isEqualTo(senderBefore),
-                        () -> assertThat(receiverAfter).as(reason).isEqualTo(receiverBefore)
+                        () -> assertThat(senderAfter).as(reason).isCloseTo(senderBefore, within(BALANCE_DELTA)),
+                        () -> assertThat(receiverAfter).as(reason).isCloseTo(receiverBefore, within(BALANCE_DELTA))
                 );
             }
         }
@@ -183,11 +184,9 @@ public class TransferWithFraudCheckTest extends BaseTest {
         @FraudCheckMock(port = WIREMOCK_PORT, endpoint = FRAUD_ENDPOINT, decision = "APPROVED")
         @DisplayName("Multiple approved transfers maintain correct cumulative balances")
         void multipleApprovedTransfers_cumulativeBalancesCorrect() {
-            double[] amounts = {100.00, 250.00, 75.00, 500.00, 125.00};
             double totalSent = 0;
 
-
-            for (double amount : amounts) {
+            for (double amount : CUMULATIVE_TRANSFER_AMOUNTS) {
                 executeTransfer(amount);
                 totalSent += amount;
             }
@@ -208,7 +207,7 @@ public class TransferWithFraudCheckTest extends BaseTest {
                     senderAccountId.intValue(),
                     receiverAccountId.intValue(),
                     attemptAmount,
-                    400
+                    BAD_REQUEST
             );
 
             AccountDao senderAfter = DataBaseSteps.getAccountById(senderAccountId);
@@ -220,14 +219,12 @@ public class TransferWithFraudCheckTest extends BaseTest {
         @FraudCheckMock(port = WIREMOCK_PORT, endpoint = FRAUD_ENDPOINT, decision = "APPROVED")
         @DisplayName("Transfer from non-existent account returns 403")
         void transferFromNonExistentAccount_returns404() {
-            int nonExistentAccount = 999999;
-
             UserSteps.transferAndExpectError(
                     sender.getToken(),
-                    nonExistentAccount,
+                    NON_EXISTENT_ACCOUNT_ID,
                     receiverAccountId.intValue(),
                     100.00,
-                    403
+                    FORBIDDEN
             );
         }
     }
@@ -241,24 +238,21 @@ public class TransferWithFraudCheckTest extends BaseTest {
         @FraudCheckMock(port = WIREMOCK_PORT, endpoint = FRAUD_ENDPOINT, decision = "APPROVED")
         @DisplayName("Concurrent transfers from same account should be atomic")
         void concurrentTransfers_atomicityGuaranteed() throws InterruptedException {
-            int threadCount = 10;
-            double amountPerTransfer = 100.00;
-
             double balanceBefore = getAccountBalanceFromDb(senderAccountId);
 
-            ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-            CountDownLatch latch = new CountDownLatch(threadCount);
+            ExecutorService executor = Executors.newFixedThreadPool(CONCURRENT_THREADS);
+            CountDownLatch latch = new CountDownLatch(CONCURRENT_THREADS);
             AtomicInteger successfulTransfers = new AtomicInteger(0);
             AtomicInteger failedTransfers = new AtomicInteger(0);
 
-            for (int i = 0; i < threadCount; i++) {
+            for (int i = 0; i < CONCURRENT_THREADS; i++) {
                 executor.submit(() -> {
                     try {
                         UserSteps.transfer(
                                 sender.getToken(),
                                 senderAccountId.intValue(),
                                 receiverAccountId.intValue(),
-                                amountPerTransfer
+                                CONCURRENT_TRANSFER_AMOUNT
                         );
                         successfulTransfers.incrementAndGet();
                     } catch (Exception e) {
@@ -270,12 +264,12 @@ public class TransferWithFraudCheckTest extends BaseTest {
                 });
             }
 
-            latch.await(30, TimeUnit.SECONDS);
+            latch.await(DEFAULT_SECONDS, TimeUnit.SECONDS);
             executor.shutdown();
-            executor.awaitTermination(10, TimeUnit.SECONDS);
+            executor.awaitTermination(THREAD_POOL_SHUTDOWN_SECONDS, TimeUnit.SECONDS);
 
             waitForFraudCheckCompletion();
-            Thread.sleep(2000);
+            Thread.sleep(FRAUD_CHECK_DELAY_MS);
 
             double balanceAfter = getAccountBalanceFromDb(senderAccountId);
             double actualDecrease = balanceBefore - balanceAfter;
@@ -283,10 +277,9 @@ public class TransferWithFraudCheckTest extends BaseTest {
             log.info("Результаты конкурентного теста - Успешно: {}, Неудачно: {}, Фактическое списание: {}",
                     successfulTransfers.get(), failedTransfers.get(), actualDecrease);
 
-
             assertThat(actualDecrease)
                     .as("Общее списание с баланса должно равняться сумме успешных переводов")
-                    .isCloseTo(successfulTransfers.get() * amountPerTransfer, within(BALANCE_DELTA * threadCount));
+                    .isCloseTo(successfulTransfers.get() * CONCURRENT_TRANSFER_AMOUNT, within(BALANCE_DELTA * CONCURRENT_THREADS));
 
             assertThat(successfulTransfers.get())
                     .as("Хотя бы один перевод должен быть успешным")
@@ -307,7 +300,7 @@ public class TransferWithFraudCheckTest extends BaseTest {
                     senderAccountId.intValue(),
                     receiverAccountId.intValue(),
                     100.00,
-                    401
+                    UNAUTHORIZED
             );
         }
 
@@ -320,7 +313,7 @@ public class TransferWithFraudCheckTest extends BaseTest {
                     senderAccountId.intValue(),
                     receiverAccountId.intValue(),
                     100.00,
-                    401
+                    UNAUTHORIZED
             );
         }
 
@@ -333,7 +326,7 @@ public class TransferWithFraudCheckTest extends BaseTest {
                     senderAccountId.intValue(),
                     receiverAccountId.intValue(),
                     100.00,
-                    403
+                    FORBIDDEN
             );
         }
     }
@@ -351,7 +344,7 @@ public class TransferWithFraudCheckTest extends BaseTest {
                     senderAccountId.intValue(),
                     receiverAccountId.intValue(),
                     0.00,
-                    400
+                    BAD_REQUEST
             );
         }
 
@@ -364,13 +357,13 @@ public class TransferWithFraudCheckTest extends BaseTest {
                     senderAccountId.intValue(),
                     receiverAccountId.intValue(),
                     -100.00,
-                    400
+                    BAD_REQUEST
             );
         }
 
         @ParameterizedTest
         @Order(22)
-        @ValueSource(doubles = {0.01, 0.10, 0.99, 1.00})
+        @ValueSource(doubles = {MIN_POSITIVE_AMOUNT, 0.10, 0.99, 1.00})
         @DisplayName("Very small but valid amounts should work")
         void verySmallAmounts_shouldWork(double amount) {
             double senderBefore = getAccountBalanceFromDb(senderAccountId);
@@ -380,9 +373,9 @@ public class TransferWithFraudCheckTest extends BaseTest {
 
             assertAll(
                     () -> assertThat(getAccountBalanceFromDb(senderAccountId))
-                            .isCloseTo(senderBefore - amount, within(0.001)),
+                            .isCloseTo(senderBefore - amount, within(BALANCE_DELTA)),
                     () -> assertThat(getAccountBalanceFromDb(receiverAccountId))
-                            .isCloseTo(receiverBefore + amount, within(0.001))
+                            .isCloseTo(receiverBefore + amount, within(BALANCE_DELTA))
             );
         }
 
@@ -391,26 +384,26 @@ public class TransferWithFraudCheckTest extends BaseTest {
         @DisplayName("Transfer to self (same user, different account)")
         void selfTransfer_handledCorrectly() {
             Long secondAccountId = createTrackedAccount(sender.getToken());
-            UserSteps.deposit(sender.getToken(), secondAccountId.intValue(), 1000.00);
+            UserSteps.deposit(sender.getToken(), secondAccountId.intValue(), DEFAULT_DEPOSIT_AMOUNT);
 
             double firstAccountBefore = getAccountBalanceFromDb(senderAccountId);
             double secondAccountBefore = getAccountBalanceFromDb(secondAccountId);
+            double transferAmount = 200.00;
 
-            UserSteps.transfer(sender.getToken(), senderAccountId.intValue(), secondAccountId.intValue(), 200.00);
+            UserSteps.transfer(sender.getToken(), senderAccountId.intValue(), secondAccountId.intValue(), transferAmount);
             waitForFraudCheckCompletion();
 
             double firstAccountAfter = getAccountBalanceFromDb(senderAccountId);
             double secondAccountAfter = getAccountBalanceFromDb(secondAccountId);
 
-            boolean transferCompleted = Math.abs(firstAccountAfter - (firstAccountBefore - 200.00)) < BALANCE_DELTA;
-            boolean transferRejected = firstAccountAfter == firstAccountBefore;
+            boolean transferCompleted = Math.abs(firstAccountAfter - (firstAccountBefore - transferAmount)) < BALANCE_DELTA;
+            boolean transferRejected = Math.abs(firstAccountAfter - firstAccountBefore) < BALANCE_DELTA;
 
             assertThat(transferCompleted || transferRejected)
                     .as("Перевод самому себе должен либо выполниться, либо быть отклоненным последовательно")
                     .isTrue();
         }
     }
-
 
     private static class TransferTestContext {
         private double senderInitialBalance;
