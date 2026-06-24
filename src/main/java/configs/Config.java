@@ -1,75 +1,145 @@
 package configs;
+
 import lombok.Getter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
 
 public class Config {
 
-    @Getter
-    private static final String jdbcUrl = System.getProperty(
-            "DB_URL",
-            System.getenv().getOrDefault("JDBC_URL", "jdbc:postgresql://localhost:5433/nbank")
-    );
+    private static final Config INSTANCE = new Config();
+    private final Properties properties = new Properties();
 
-    @Getter
-    private static final String dbUsername = System.getProperty(
-            "DB_USERNAME",
-            System.getenv().getOrDefault("SPRING_DATASOURCE_USERNAME", "postgres")
-    );
+    static {
+        try (InputStream input = Config.class.getClassLoader().getResourceAsStream("config.properties")) {
+            if (input == null) {
+                System.err.println("config.properties not found in resources — using default values");
+            } else {
+                INSTANCE.properties.load(input);
+                System.out.println("✅ config.properties loaded successfully");
+                INSTANCE.properties.list(System.out);
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to load config.properties — using default values");
+        }
+    }
 
-    @Getter
-    private static final String dbPassword = System.getProperty(
-            "DB_PASSWORD",
-            System.getenv().getOrDefault("SPRING_DATASOURCE_PASSWORD", "postgres")
-    );
+    // Главный метод для получения свойств с приоритетом:
+    // 1. Системные свойства (-D)
+    // 2. Переменные окружения
+    // 3. config.properties
+    // 4. Дефолтные значения
+    public static String getPropertyWithPriority(String key) {
+        // 1. Пробуем системные свойства
+        String systemValue = System.getProperty(key);
+        if (systemValue != null && !systemValue.isEmpty()) {
+            System.out.println("🔧 Using system property: " + key + "=" + systemValue);
+            return systemValue;
+        }
 
-    @Getter
-    private static final String adminUsername = System.getenv()
-            .getOrDefault("ADMIN_USERNAME", "admin");
+        // 2. Пробуем переменные окружения
+        String envKey = key.toUpperCase().replace('.', '_');
+        String envValue = System.getenv(envKey);
+        if (envValue != null && !envValue.isEmpty()) {
+            System.out.println("🌍 Using env variable: " + envKey + "=" + envValue);
+            return envValue;
+        }
 
-    @Getter
-    private static final String adminPassword = System.getenv()
-            .getOrDefault("ADMIN_PASSWORD", "admin123");
+        // 3. Пробуем config.properties
+        String propValue = INSTANCE.properties.getProperty(key);
+        if (propValue != null && !propValue.isEmpty()) {
+            System.out.println("📁 Using config.properties: " + key + "=" + propValue);
+            return propValue;
+        }
 
-    private static final String BASE_URL = "http://localhost:4112"; // меняем 4111 на 4112
-    private static final String ADMIN_USERNAME = "admin";
-    private static final String ADMIN_PASSWORD = "admin";
-    private static final String ADMIN_BASIC_AUTH = "Basic YWRtaW46YWRtaW4=";
+        // 4. Дефолтные значения (из статических полей или жестко заданные)
+        return getDefaultValue(key);
+    }
 
-    public static String getBaseUrl() {
-        return BASE_URL;
+    private static String getDefaultValue(String key) {
+        switch (key) {
+            case "db.url":
+                return "jdbc:postgresql://localhost:5433/nbank";
+            case "db.username":
+                return "postgres";
+            case "db.password":
+                return "postgres";
+            case "admin.username":
+                return "admin";
+            case "admin.password":
+                return "admin";
+            case "api.base.url":
+                return "http://localhost:4112";
+            default:
+                return null;
+        }
+    }
+
+    // Все методы должны использовать getPropertyWithPriority
+    public static String getJdbcUrl() {
+        return getPropertyWithPriority("db.url");
+    }
+
+    public static String getDbUsername() {
+        return getPropertyWithPriority("db.username");
+    }
+
+    public static String getDbPassword() {
+        return getPropertyWithPriority("db.password");
     }
 
     public static String getAdminUsername() {
-        return ADMIN_USERNAME;
+        return getPropertyWithPriority("admin.username");
     }
 
     public static String getAdminPassword() {
-        return ADMIN_PASSWORD;
+        return getPropertyWithPriority("admin.password");
     }
 
-    public static String getAdminBasicAuth() {
-        return ADMIN_BASIC_AUTH;
+    public static String getBaseUrl() {
+        return getPropertyWithPriority("api.base.url");
     }
 
+    // Старые методы для обратной совместимости
+    public static String getJdbcUrlFlexible() {
+        return getJdbcUrl();
+    }
+
+    public static String getDbUsernameFlexible() {
+        return getDbUsername();
+    }
+
+    public static String getDbPasswordFlexible() {
+        return getDbPassword();
+    }
+
+    public static String getAdminUsernameFlexible() {
+        return getAdminUsername();
+    }
+
+    public static String getAdminPasswordFlexible() {
+        return getAdminPassword();
+    }
+
+    public static String getBaseUrlFlexible() {
+        return getBaseUrl();
+    }
+
+    // Для обратной совместимости с существующим кодом
     public static String getProperty(String key) {
-        switch (key) {
-            case "db.url":
-                return getJdbcUrl();
-            case "db.username":
-                return getDbUsername();
-            case "db.password":
-                return getDbPassword();
-            case "admin.username":
-                return getAdminUsername();
-            case "admin.password":
-                return getAdminPassword();
-            default:
-                return null;
-
-
-        }
+        return getPropertyWithPriority(key);
     }
+
     public static String getProperty(String key, String defaultValue) {
-        String value = getProperty(key);
+        String value = getPropertyWithPriority(key);
         return value != null ? value : defaultValue;
+    }
+
+    // Другие существующие методы
+    public static String getAdminBasicAuth() {
+        String username = getAdminUsername();
+        String password = getAdminPassword();
+        String credentials = username + ":" + password;
+        return "Basic " + java.util.Base64.getEncoder().encodeToString(credentials.getBytes());
     }
 }

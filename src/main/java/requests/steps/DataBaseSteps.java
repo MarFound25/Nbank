@@ -15,6 +15,23 @@ import java.util.List;
 
 public class DataBaseSteps {
 
+    static {
+        System.out.println("=========================================");
+        System.out.println("🔍 DataBaseSteps Configuration Debug:");
+        System.out.println("   DB_URL: " + Config.getJdbcUrl());
+        System.out.println("   DB_USERNAME: " + Config.getDbUsername());
+        System.out.println("   DB_PASSWORD: " + Config.getDbPassword());
+        System.out.println("   API_BASE_URL: " + Config.getBaseUrl());
+        System.out.println("=========================================");
+
+        // Проверка переменных окружения напрямую
+        System.out.println("📌 Direct env check:");
+        System.out.println("   DB_URL env: " + System.getenv("DB_URL"));
+        System.out.println("   DB_USERNAME env: " + System.getenv("DB_USERNAME"));
+        System.out.println("   DB_PASSWORD env: " + System.getenv("DB_PASSWORD"));
+        System.out.println("=========================================");
+    }
+
     public static UserDao getUserByUsername(String username) {
         return StepLogger.log("Get user by username: " + username, () -> {
             return DBRequest.<UserDao>builder()
