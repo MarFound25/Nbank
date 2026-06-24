@@ -10,6 +10,8 @@ import requests.skelethon.interfaces.GetAllEndpointInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static io.restassured.RestAssured.given;
+
 public class CrudRequesters extends HttpRequest implements CrudEndpointInterface, GetAllEndpointInterface {
 
     private static final Logger log = LoggerFactory.getLogger(CrudRequesters.class);
@@ -57,16 +59,53 @@ public class CrudRequesters extends HttpRequest implements CrudEndpointInterface
                 .spec(responseSpec);
     }
 
+    // ✅ НОВЫЙ МЕТОД - для URL с {id} через pathParam
+    public ValidatableResponse readOneWithPathParam(long id) {
+        return given()
+                .spec(requestSpec)
+                .pathParam("id", id)
+                .when()
+                .get(getEndpoint())
+                .then()
+                .spec(responseSpec);
+    }
+
+    // ✅ СТАРЫЙ МЕТОД - для URL с конкатенацией (оставляем для совместимости)
     public ValidatableResponse readOne(long id) {
         return getWithValidation(getEndpoint() + "/" + id)
                 .spec(responseSpec);
     }
 
+    // ✅ НОВЫЙ МЕТОД - для URL с {id} через pathParam
+    public ValidatableResponse updateWithPathParam(long id, Object body) {
+        return given()
+                .spec(requestSpec)
+                .pathParam("id", id)
+                .body(body)
+                .when()
+                .put(getEndpoint())
+                .then()
+                .spec(responseSpec);
+    }
+
+    // ✅ СТАРЫЙ МЕТОД
     public ValidatableResponse update(long id, Object body) {
         return putWithValidation(getEndpoint() + "/" + id, body)
                 .spec(responseSpec);
     }
 
+    // ✅ НОВЫЙ МЕТОД - для URL с {id} через pathParam
+    public ValidatableResponse deleteWithPathParam(long id) {
+        return given()
+                .spec(requestSpec)
+                .pathParam("id", id)
+                .when()
+                .delete(getEndpoint())
+                .then()
+                .spec(responseSpec);
+    }
+
+    // ✅ СТАРЫЙ МЕТОД
     public ValidatableResponse delete(long id) {
         return deleteWithValidation(getEndpoint() + "/" + id)
                 .spec(responseSpec);

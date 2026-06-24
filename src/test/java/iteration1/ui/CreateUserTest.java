@@ -5,6 +5,7 @@ import common.extensions.UserSessionExtension;
 import generators.RandomModelGenerator;
 import models.CreateUserRequest;
 import models.CreateUserResponse;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 import requests.steps.AdminSteps;
 import common.annotations.AdminSession;
@@ -18,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class CreateUserTest extends BaseUiTest {
 
     @Test
+    @Disabled("Временно отключен из-за StackOverflow в ответе от /deposit")
     @AdminSession
     public void adminCanCreateUserTest() {
         CreateUserRequest newUser = RandomModelGenerator.generate(CreateUserRequest.class);

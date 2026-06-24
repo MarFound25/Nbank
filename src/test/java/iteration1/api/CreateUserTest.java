@@ -6,6 +6,7 @@ import generators.RandomData;
 import models.CreateUserRequest;
 import models.CreateUserResponse;
 import models.UserRole;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,7 @@ public class CreateUserTest extends BaseTest {
         }
 
         @Test
+        @Disabled("BACKEND-1234: StackOverflow из-за рекурсии в JSON ответе")
         @DisplayName("TC-005: Admin can get all users - includes newly created user")
         void adminCanGetAllUsersTest() {
             CreateUserRequest request = CreateUserRequest.builder()

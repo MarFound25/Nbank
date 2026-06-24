@@ -91,12 +91,13 @@ public class AdminSteps {
         ).readAll();
     }
 
+    // ✅ ИСПРАВЛЕННЫЙ МЕТОД - используем deleteWithPathParam
     public static void deleteUser(long userId) {
         new CrudRequesters(
                 RequestSpecs.adminSpec(),
                 Endpoint.ADMIN_USER_BY_ID,
                 ResponseSpecs.requestReturnsOK()
-        ).delete(userId);
+        ).deleteWithPathParam(userId);  // ← Изменено с delete() на deleteWithPathParam()
     }
 
     public static void deleteUserAndExpectNotFound(long userId) {
@@ -104,7 +105,7 @@ public class AdminSteps {
                 RequestSpecs.adminSpec(),
                 Endpoint.ADMIN_USER_BY_ID,
                 ResponseSpecs.requestReturnsNotFound()
-        ).delete(userId);
+        ).deleteWithPathParam(userId);  // ← Тоже исправлено
     }
 
     public static void deleteUserAndExpectForbidden(String token, long userId) {
@@ -112,7 +113,7 @@ public class AdminSteps {
                 RequestSpecs.authWithToken(token),
                 Endpoint.ADMIN_USER_BY_ID,
                 ResponseSpecs.requestReturnsForbidden()
-        ).delete(userId);
+        ).deleteWithPathParam(userId);  // ← Тоже исправлено
     }
 
     public static void createUserAndExpectBadRequest(CreateUserRequest request) {
@@ -185,56 +186,4 @@ public class AdminSteps {
                 .jsonPath()
                 .getList("", CreateUserResponse.class);
     }
-
-//    public static void approveTransfer(Long transactionId) {
-//        ApproveTransferRequest request = ApproveTransferRequest.builder()
-//                .transactionId(transactionId)
-//                .approved(true)
-//                .reviewerNotes("Auto-approved by test")
-//                .build();
-//
-//        new CrudRequesters(
-//                RequestSpecs.adminSpec(),
-//                Endpoint.TRANSACTIONS_APPROVE + "/" + transactionId,
-//                ResponseSpecs.requestReturnsOK()
-//        ).put(request);
-//    }
-//
-//    public static void rejectTransfer(Long transactionId) {
-//        ApproveTransferRequest request = ApproveTransferRequest.builder()
-//                .transactionId(transactionId)
-//                .approved(false)
-//                .reviewerNotes("Rejected by test")
-//                .build();
-//
-//        new CrudRequesters(
-//                RequestSpecs.adminSpec(),
-//                Endpoint.TRANSACTIONS_REJECT + "/" + transactionId,
-//                ResponseSpecs.requestReturnsOK()
-//        ).put(request);
-//    }
-//
-//    public static TransferStatus getTransactionStatus(Long transactionId) {
-//        return new CrudRequesters(
-//                RequestSpecs.adminSpec(),
-//                Endpoint.TRANSACTIONS + "/" + transactionId,
-//                ResponseSpecs.requestReturnsOK()
-//        ).getWithValidation()
-//                .extract()
-//                .as(TransferStatus.class);
-//    }
-//
-//    public static void approveTransferAndExpectError(Long transactionId, int expectedStatusCode) {
-//        ApproveTransferRequest request = ApproveTransferRequest.builder()
-//                .transactionId(transactionId)
-//                .approved(true)
-//                .reviewerNotes("Auto-approved by test")
-//                .build();
-//
-//        new CrudRequesters(
-//                RequestSpecs.adminSpec(),
-//                Endpoint.TRANSACTIONS_APPROVE + "/" + transactionId,
-//                ResponseSpecs.custom(expectedStatusCode)
-//        ).put(request);
-//    }
 }
