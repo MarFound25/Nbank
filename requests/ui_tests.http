@@ -1,0 +1,196 @@
+// ТЕСТЫ НА ДЕПОЗИТ ДЕНЕГ
+
+### Positive test: Депозит валидной суммы
+Шаг: Pre-condition
+Описание: API: Вход под админом. Админ создаёт пользователя. Пользователь логинится и получает токен. Создать счёт. Получить начальный баланс.
+Шаг: Action
+Описание: UI: Dashboard: Deposit Money. Выбрать счёт. Ввести сумму 1000. Нажать кнопку Deposit.
+Шаг: Check UI
+Описание: Появилось сообщение об успехе. Нажать Закрыть.
+Шаг: Check API
+Описание: GET/customer/accounts баланс увеличился на 100
+
+Positive test: Депозит на максимальную сумму (5000)
+Шаг: Pre-condition
+Описание: API: Создать пользователя. Авторизоваться. Создать счёт. Получить начальный баланс.
+Шаг: Action
+Описание: UI: Deposit Money. Выбрать счёт. В поле Enter Amount ввести 5000. Нажать кнопку отправки Deposit.
+Шаг: Check UI
+Описание: Появилось сообщение об успешном депозите. Нажать Закрыть.
+Шаг: Check API
+Описание: GET /customer/accounts баланс выбранного счёта увеличился на 5000
+
+Negative test: Депозит с суммой выше лимита (5001)
+Шаг: Pre-condition
+Описание: API: Создать пользователя. Авторизоваться. Создать счёт. Пполучить начальный баланс.
+Шаг: Action
+Описание: UI: Deposit Money. Выбрать счёт. В поле Enter Amount ввести 5001. Нажать кнопку отправки Deposit.
+Шаг: Check UI
+Описание: Появилось уведомление об ошибке: "Please deposit less or equal to 5000$". Нажать Закрыть.
+Шаг: Check API
+Описание: GET /customer/accounts баланс счёта остался равным начальному, не изменился
+
+Negative test: Депозит без выбора счёта
+Шаг: Pre-condition
+Описание: API: Создать пользователя. Авторизоваться. Создать счёт.
+Шаг: Action
+Описание: UI: Deposit Money. Не выбирать счёт. Оставить Choose an account пустым. В поле Enter Amount ввести 1000. Нажать кнопку отправки Deposit.
+Шаг: Check UI
+Описание: Появилось уведомление об ошибке: "Please select an account". Нажать Закрыть.
+Шаг: Check API
+Описание: GET /customer/accounts баланс счётов не изменился
+
+Negative test: Депозит с отрицательной суммой
+Шаг: Pre-condition
+Описание: API: Создать пользователя. Авторизоваться. Создать счёт. Получить начальный баланс.
+Шаг: Action
+Описание: UI: Deposit Money. Выбрать счёт. В поле Enter Amount ввести -100. Нажать кнопку отправки Deposit.
+Шаг: Check UI
+Описание: Появляется уведомление об ошибке: "Please enter a valid amount". Нажимаем Закрыть.
+Шаг: Check API
+Описание: GET /customer/accounts баланс счёта не изменился
+
+
+// ТЕСТЫ НА ПЕРЕВОД ДЕНЕГ
+
+Positive test: Успешный перевод между своими счетами
+Шаг: Pre-condition
+Описание: API: Создать пользователя. Авторизоваться. Создать 2 счёта. Пополнить счёт отправителя на 1500.
+Шаг: Action
+Описание: UI: На Dashboard нажать кнопку Make a Transfer. В поле Select Your Account выбрать счёт отправителя.
+В поле Recipient Name и Recipient Account Number ввести номер счёта получателя.
+В поле Amount ввести 1000. Поставить галочку Confirm details are correct. Нажать кнопку Send Transfer.
+Шаг: Check UI
+Описание: Появилось сообщение "Перевод успешно выполнен". Нажать кнопку Закрыть.
+Шаг: Check API
+Описание: GET /customer/accounts  баланс счёта отправителя уменьшился на 1000, баланс счёта получателя увеличился на 1000
+
+Positive test: Перевод на максимальную сумму (10000)
+Шаг: Pre-condition
+Описание: API: Создать пользователя и 2 счёта. Пополнить счёт отправителя на 10000, частями по 5т$.
+Шаг: Action
+Описание: UI: Make a Transfer поле Select Your Account выбрать счёт отправителя.
+Поле Recipient Account Number указать счёт получателя.
+Поле Amount ввести 10000 и галочка Confirm details are correct. Нажать кнопку Send Transfer
+Шаг: Check UI
+Описание: Сообщение об успешном переводе 10000
+Шаг: Check API
+Описание: GET /customer/accounts баланс отправителя уменьшился на 10000, а баланс получателя увеличился на 10000
+
+Negative test: Перевод суммы выше лимита (10001)
+Описание: API: Создать пользователя и 2 счёта. Пополнить счёт отправителя на 15000. Получить начальные балансы.
+Шаг: Action
+Описание: UI: Make a Transfer поле Select Your Account выбрать счёт отправителя.
+Поле Recipient Account Number указать счёт получателя, поле Amount ввести 10001.
+Галочка Confirm details are correct. Нажать кнопку Send Transfer
+Шаг: Check UI
+Описание: Появилось уведомление об ошибке: "Transfer amount cannot exceed 10000". Нажать кнопку Закрыть.
+Шаг: Check API
+Описание: GET /customer/accounts балансы обоих счетов не изменились
+
+Negative test: Перевод суммы больше доступного баланса
+Шаг: Pre-condition
+Описание: API: Создать пользователя и 2 счёта. Пополнить счёт отправителя на 5000.
+Шаг: Action
+Описание: UI: Make a Transfer поле Select Your Account выбрать счёт отправителя.
+Поле Recipient Account Number указать счёт получателя в поле Amount ввести 6000 и поставить галочку Confirm details are correct.
+Нажать кнопку Send Transfer
+Шаг: Check UI
+Описание: Появилось уведомление об ошибке: "Error: Invalid transfer: insufficient funds or invalid accounts". Нажать Закрыть.
+Шаг: Check API
+Описание: GET /customer/accounts  балансы обоих счетов не изменились
+
+Negative test: Перевод без выбора счёта отправителя
+Шаг: Pre-condition
+Описание: API: Создать пользователя и 2 счёта
+Шаг: Action
+Описание: UI: Make a Transfer поле Select Your Account оставить.
+Choose an account - не выбирать.
+Поле Recipient Account Number заполнить, поле Amount ввести сумму, поставить галочку Confirm details are correct.
+Нажать Send Transfer.
+Шаг: Check UI
+Описание: Появилось уведомление об ошибке: "Please fill all and confirm". Нажать Закрыть.
+Шаг: Check API
+Описание: Запрос на перевод не отправлен, балансы счетов не изменились
+
+Negative test: Перевод без подтверждения
+Шаг: Pre-condition
+Описание: API: Создать пользователя и 2 счёта. Пополнить счёт-отправителя.
+Шаг: Action
+Описание: UI: Make a Transfer поле Select Your Account выбрать счёт отправителя.
+В поле Recipient Account Number указать счёт получателя.
+В поле Amount ввести сумму и не ставить галочку Confirm details are correct.
+Нажать Send Transfer.
+Шаг: Check UI
+Описание: Появляется уведомление об ошибке: "Please fill all fields and confirm"
+Шаг: Check API
+Описание: Запрос на перевод не отправлен, балансы счетов не изменились
+
+
+// ТЕСТЫ НА ИЗМЕНЕНИЕ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
+
+Positive test: Успешное изменение имени
+Шаг: Pre-condition
+Описание: API: Создать пользователя с именем "Many_Lol". Авторизоваться.
+Шаг: Action
+Описание: UI: на Dashboard нажать на аватар @Many_Lol
+Открылась форма Edit Profile. Ввести Anna Smith. Нажать кнопку Save Changes.
+Шаг: Check UI
+Описание: Появилось сообщение об успешном сохранении. При возврате на Dashboard приветствие изменилось на Welcome, Anna Smith! (в начале появляетcя noname при обновлении)
+Шаг: Check API
+Описание: GET /customer/profile поле name стало равно "Anna Smith"
+
+Negative test: Изменение имени на одно слово
+Шаг: Pre-condition
+Описание: API: Создать пользователя с именем "Valid Name". Авторизоваться.
+Шаг: Action
+Описание: UI: нажать на аватар @Many_Lol , Edit Profile, появляется поле Enter new name ввести Sam.
+Нажать Save Changes.
+Шаг: Check UI
+Описание: Появилось уведомление об ошибке: "Name must contains two words with letters only". Нажать Закрыть.
+Шаг: Check API
+Описание: GET /customer/profile имя пользователя не изменилось
+
+Negative test: Изменение имени с цифрами
+Шаг: Pre-condition
+Описание: API: Создать пользователя с именем "Valid Name". Авторизоваться.
+Шаг: Action
+Описание: UI: нажать на аватар @Many_Lol  Edit Profile в поле Enter new name ввести John 123.
+Нажать Save Changes.
+Шаг: Check UI
+Описание: Появилось уведомление об ошибке: "Name must contains two words with letters only". Нажать Закрыть.
+Шаг: Check API
+Описание: GET /customer/profile имя пользователя не изменилось
+
+Negative test: Изменение имени со спецсимволами
+Шаг: Pre-condition
+Описание: API: Создать пользователя с именем "Valid Name". Авторизоваться.
+Шаг: Action
+Описание: UI: нажать на аватар @Many_Lol Edit Profile в поле Enter new name ввести John@ Doe.
+Нажать Save Changes.
+Шаг: Check UI
+Описание: Появилось уведомление об ошибке: "Name must contains two words with letters only". Нажать Закрыть.
+Шаг: Check API
+Описание: GET /customer/profile имя пользователя не изменилось
+
+Negative test: Изменение имени на пустую строку
+Шаг: Pre-condition
+Описание: API: Создать пользователя с именем "Valid Name". Авторизоваться.
+Шаг: Action
+Описание: UI: нажать на аватар @Many_Lol Edit Profile в поле Enter new name очистить/оставить пустым.
+Нажать Save Changes.
+Шаг: Check UI
+Описание: Появилось уведомление об ошибке: "Please enter a valid name".
+Шаг: Check API
+Описание: GET /customer/profile имя пользователя не изменилось
+
+Positive test: Изменение имени с лишними пробелами
+ШШаг: Pre-condition
+ Описание: API: Создать пользователя. Авторизоваться.
+ Шаг: Action
+ Описание: UI: Нажать на аватар @Many_Lol  Edit Profile в поле Enter new name ввести Anna Smit с пробелами в начале и конце.
+ Нажать Save Changes
+ Шаг: Check UI
+ Описание: Появилось уведомление об ошибке: "Name must contains two words with letters only". Нажать Закрыть.
+ Шаг: Check API
+ Описание: GET /customer/profile  поле name не изменилось
