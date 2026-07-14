@@ -5,7 +5,12 @@ import api.dao.UserDao;
 import configs.Config;
 import lombok.Getter;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -208,7 +213,9 @@ public class DBRequest<T> {
         if (conditions != null && !conditions.isEmpty()) {
             sql.append(" WHERE ");
             for (int i = 0; i < conditions.size(); i++) {
-                if (i > 0) sql.append(" AND ");
+                if (i > 0) {
+                    sql.append(" AND ");
+                }
                 sql.append(conditions.get(i).toSqlClause());
             }
         }
