@@ -1,6 +1,10 @@
 package requests.steps;
 
-import models.*;
+import models.CreateAccountResponse;
+import models.DepositRequest;
+import models.DepositResponse;
+import models.TransferRequest;
+import models.TransferResponse;
 import requests.skelethon.Endpoint;
 import requests.skelethon.requesters.ValidatedCrudRequester;
 import specs.RequestSpecs;

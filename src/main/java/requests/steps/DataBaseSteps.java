@@ -83,7 +83,9 @@ public class DataBaseSteps {
                     stmt.setDouble(1, newBalance);
                     stmt.setLong(2, accountId);
                     int rows = stmt.executeUpdate();
-                    if (rows == 0) throw new RuntimeException("Account not found: " + accountId);
+                    if (rows == 0) {
+                        throw new RuntimeException("Account not found: " + accountId);
+                    }
                 }
             } catch (SQLException e) {
                 throw new RuntimeException("Failed to update balance", e);

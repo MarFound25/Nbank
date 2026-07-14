@@ -2,7 +2,11 @@ package models.comparison;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 public class ModelComparisonConfigLoader {
 
@@ -17,7 +21,9 @@ public class ModelComparisonConfigLoader {
             props.load(input);
             for (String key : props.stringPropertyNames()) {
                 String[] target = props.getProperty(key).split(":");
-                if (target.length != 2) continue;
+                if (target.length != 2) {
+                    continue;
+                }
 
                 String responseClassName = target[0].trim();
                 List<String> fields = Arrays.asList(target[1].split(","));

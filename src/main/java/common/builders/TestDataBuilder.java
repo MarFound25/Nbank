@@ -1,6 +1,5 @@
 package common.builders;
 
-import api.dao.AccountDao;
 import api.dao.UserDao;
 import models.UserWithToken;
 import generators.RandomData;
