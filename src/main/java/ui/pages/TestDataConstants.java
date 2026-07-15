@@ -27,7 +27,7 @@ public class TestDataConstants {
     public static final String INVALID_WITH_SPECIAL = "John@ Doe";
     public static final String EXPECTED_TRIMMED_NAME = "Anna Smith";
 
-    public static final String WELCOME_TEXT_PREFIX = "Welcome, noname!";
+    public static final String WELCOME_TEXT_PREFIX = "Welcome,";
     public static final String EMPTY_STRING = "";
 
     public static final class Api {

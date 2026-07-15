@@ -16,6 +16,6 @@ public class Account {
     private String accountNumber;
     private Double balance;
 
-    @JsonIgnore  // ← ДОБАВИТЬ ЭТУ АННОТАЦИЮ
+    @JsonIgnore  
     private List<Transaction> transactions;
 }

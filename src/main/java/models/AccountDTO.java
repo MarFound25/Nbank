@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class AccountDTO {  // ← Новый класс без транзакций
+public class AccountDTO {  
     private long id;
     private String accountNumber;
     private Double balance;

@@ -28,7 +28,6 @@ import static org.assertj.core.api.Assertions.within;
 @DisplayName("Transfer Tests - API & Database Integration")
 public class TransferTest extends BaseTest {
 
-
     private static Stream<Arguments> provideValidTransferData() {
         return Stream.of(
                 Arguments.of(1000.0, 300.0),

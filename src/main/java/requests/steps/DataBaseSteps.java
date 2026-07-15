@@ -24,7 +24,6 @@ public class DataBaseSteps {
         System.out.println("   API_BASE_URL: " + Config.getBaseUrl());
         System.out.println("=========================================");
 
-        // Проверка переменных окружения напрямую
         System.out.println("📌 Direct env check:");
         System.out.println("   DB_URL env: " + System.getenv("DB_URL"));
         System.out.println("   DB_USERNAME env: " + System.getenv("DB_USERNAME"));
@@ -145,8 +144,6 @@ public class DataBaseSteps {
         });
     }
 
-    // Добавить в конец файла DataBaseSteps.java
-
     public static void waitForAccountInDb(Long accountId, long timeoutMs) {
         long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() - startTime < timeoutMs) {
@@ -157,7 +154,7 @@ public class DataBaseSteps {
                     return;
                 }
             } catch (Exception e) {
-                // Account not found yet
+                
             }
             try {
                 Thread.sleep(100);

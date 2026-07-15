@@ -1,17 +1,13 @@
 package common.utils;
 
+import common.helpers.StepLogger;
+
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-/**
- * Принимаем на вход общего ретрая:
- * 1) что повторяем
- * 2) условие выхода
- * 3) максимальное количество попыток
- * 4) задержка между каждой попыткой
- */
 public class RetryUtils {
     public static <T> T retry(
+            String title,
             Supplier<T> action,
             Predicate<T> condition,
             int maxAttempts,
@@ -22,10 +18,16 @@ public class RetryUtils {
 
         while (attempts < maxAttempts) {
             attempts++;
-            result = action.get();
 
-            if (condition.test(result)) {
-                return result;
+            try {
+                final int attempt = attempts;
+                result = StepLogger.log("Attempt " + attempt + ": " + title, () -> action.get());
+
+                if (condition.test(result)) {
+                    return result;
+                }
+            } catch (Throwable e) {
+                System.out.println("Exception " + e.getMessage());
             }
 
             try {
@@ -36,5 +38,13 @@ public class RetryUtils {
         }
 
         throw new RuntimeException("Retry failed after " + maxAttempts + " attempts!");
+    }
+
+    public static <T> T retry(
+            Supplier<T> action,
+            Predicate<T> condition,
+            int maxAttempts,
+            long delayMillis) {
+        return retry("retry action", action, condition, maxAttempts, delayMillis);
     }
 }

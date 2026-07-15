@@ -2,8 +2,10 @@ package iteration1.ui;
 
 import com.codeborne.selenide.Configuration;
 import com.codeborne.selenide.Selenide;
+import com.codeborne.selenide.logevents.SelenideLogger;
 import common.extensions.BrowserMatchExtension;
 import iteration1.api.BaseTest;
+import io.qameta.allure.selenide.AllureSelenide;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,11 +27,16 @@ public class BaseUiTest extends BaseTest {
         Configuration.baseUrl = "http://localhost:3000";
         Configuration.timeout = 10000;
         Configuration.headless = true;
+
+        SelenideLogger.addListener("AllureSelenide", new AllureSelenide()
+                .screenshots(true)
+                .savePageSource(true)
+                .includeSelenideSteps(true));
     }
 
     @BeforeEach
     public void openMainPage() {
-        open("/");
+        
     }
 
     @AfterEach

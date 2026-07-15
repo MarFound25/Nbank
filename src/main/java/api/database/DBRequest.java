@@ -142,7 +142,6 @@ public class DBRequest<T> {
                     .build();
         }
 
-
         private AccountDao mapToAccountDao(ResultSet rs) throws SQLException {
             return AccountDao.builder()
                     .id(rs.getLong("id"))
@@ -152,7 +151,6 @@ public class DBRequest<T> {
                     .createdAt(toLocalDateTime(rs, "created_at"))
                     .build();
         }
-
 
         private LocalDateTime toLocalDateTime(ResultSet rs, String columnName) throws SQLException {
             Timestamp timestamp = rs.getTimestamp(columnName);
@@ -167,7 +165,6 @@ public class DBRequest<T> {
                 Config.getProperty("db.password")
         );
     }
-
 
     private T execute() {
         String sql = buildSql();
@@ -184,7 +181,6 @@ public class DBRequest<T> {
             throw new RuntimeException("Query failed: " + sql, e);
         }
     }
-
 
     private List<T> executeList() {
         String sql = buildSql();

@@ -14,6 +14,6 @@ public class Endpoint {
 
     public static final String CUSTOMER_PROFILE = "/api/v1/customer/profile";
     public static final String CUSTOMER_ACCOUNTS = "/api/v1/customer/accounts";
-    public static final String TRANSFER_WITH_FRAUD_CHECK = "/api/v1/accounts/transfer"; //"/api/v1/accounts/transfer-with-fraud-check";
+    public static final String TRANSFER_WITH_FRAUD_CHECK = "/api/v1/accounts/transfer"; 
 
 }

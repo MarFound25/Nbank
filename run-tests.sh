@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Настройка
 IMAGE_NAME=nbank-tests
 TEST_PROFILE=${1:-api}
 TIMESTAMP=$(date +"%Y%m%d_%H%M")
@@ -13,7 +12,6 @@ mkdir -p "$TEST_OUTPUT_DIR/logs"
 mkdir -p "$TEST_OUTPUT_DIR/results"
 mkdir -p "$TEST_OUTPUT_DIR/report"
 
-# Запуск Docker контейнера с extra_hosts
 echo ">>> Тесты запущены"
 docker run --rm \
   --add-host host.docker.internal:host-gateway \

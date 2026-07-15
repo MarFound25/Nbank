@@ -86,6 +86,5 @@ public class ProfileUiTest extends BaseUiTest {
         ProfileResponse profile = UserSteps.getProfile(userToken);
         assertThat(profile.getName()).isEqualTo(expectedName);
 
-
     }
 }

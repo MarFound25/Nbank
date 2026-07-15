@@ -70,7 +70,6 @@ public class ResponseSpecs {
                 .build();
     }
 
-    // Опциональные методы
     public static ResponseSpecification bodyFieldEquals(String jsonPath, Object expectedValue) {
         return new ResponseSpecBuilder()
                 .expectBody(jsonPath, Matchers.equalTo(expectedValue))
