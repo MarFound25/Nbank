@@ -28,10 +28,9 @@ public class AccountSteps {
 
     public CreateAccountResponse createAccount() {
         return StepLogger.log("User " + username + " creates account", () -> {
-            // Получаем токен для авторизации
+            
             String token = UserSteps.loginAndGetToken(username, password);
 
-            // Прямой вызов API через RestAssured
             return given()
                     .spec(RequestSpecs.authWithToken(token))
                     .when()
@@ -56,7 +55,6 @@ public class AccountSteps {
                     ResponseSpecs.requestReturnsOK()).post(depositRequest);
         });
     }
-
 
     public TransferResponse transferWithFraudCheck(Long senderAccountId, Long receiverAccountId, double amount) {
         return StepLogger.log("User " + username + " transfers " + amount + " to " + receiverAccountId + " with fraud check", () -> {

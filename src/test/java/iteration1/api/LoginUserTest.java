@@ -12,7 +12,6 @@ import requests.steps.AdminSteps;
 import requests.steps.DataBaseSteps;
 import requests.steps.UserSteps;
 
-
 @DisplayName("Login Tests - API & Database Integration")
 public class LoginUserTest extends BaseTest {
 

@@ -52,7 +52,7 @@ public class ModelComparisonConfigLoader {
                 if (parts.length == 2) {
                     fieldMappings.put(parts[0].trim(), parts[1].trim());
                 } else {
-                    // fallback: same field name if mapping not explicitly given
+                    
                     fieldMappings.put(pair.trim(), pair.trim());
                 }
             }

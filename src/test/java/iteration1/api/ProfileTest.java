@@ -56,7 +56,6 @@ public class ProfileTest extends BaseTest {
         );
     }
 
-
     private String currentUsername;
     private Long currentUserId;
     private LocalDateTime userCreatedAt;

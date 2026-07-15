@@ -10,8 +10,19 @@ services:
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - FRAUD_DETECTION_SERVICE_URL=http://wiremock:8080
     depends_on:
-      - postgres
-      - wiremock
+      postgres:
+        condition: service_healthy
+      wiremock:
+        condition: service_started
+    networks:
+      - nbank-network
+
+  frontend:
+    image: nobugsme/nbank-ui:with_nginx
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
     networks:
       - nbank-network
 
@@ -33,7 +44,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
 
   wiremock:
     image: wiremock/wiremock:latest

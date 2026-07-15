@@ -10,7 +10,6 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 
-
 public class DaoComparator {
 
     private static final Logger log = LoggerFactory.getLogger(DaoComparator.class);
@@ -28,7 +27,6 @@ public class DaoComparator {
         this.configFile = configFile;
         loadConfiguration();
     }
-
 
     public void compare(Object apiResponse, Object dao) {
         long startTime = System.currentTimeMillis();
@@ -227,7 +225,6 @@ public class DaoComparator {
         sb.append("\n").append("═".repeat(60)).append("\n");
         return sb.toString();
     }
-
 
     private static class ComparisonResult {
         private final Map<String, FieldMismatch> failures = new ConcurrentHashMap<>();

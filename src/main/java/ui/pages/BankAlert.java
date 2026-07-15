@@ -25,7 +25,6 @@ public enum BankAlert {
     PROFILE__ENTER_VALID_NAME("❌ Please enter a valid name."),
     PROFILE_UPDATED_SUCCESSFULLY("updated successfully");
 
-
     private final String message;
 
     BankAlert(String message) {

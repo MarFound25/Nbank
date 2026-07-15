@@ -89,9 +89,6 @@ public class DepositTest extends BaseTest {
 
             UserSteps.deposit(token, accountId, amount);
 
-            // Примечание: API запрос GET после внесения депозита возвращает битый ответ
-            // (проблема на стороне бэкенда: слишком большой ответ с циклическими ссылками)
-            // Использовала базу данных как главный источник правды - так надежнее и быстрее
             AccountDao accountAfter = DataBaseSteps.getAccountById((long) accountId);
 
             softly.assertThat(accountAfter.getBalance())

@@ -95,13 +95,12 @@ public class AdminSteps {
         ).readAll();
     }
 
-    // ✅ ИСПРАВЛЕННЫЙ МЕТОД - используем deleteWithPathParam
     public static void deleteUser(long userId) {
         new CrudRequesters(
                 RequestSpecs.adminSpec(),
                 Endpoint.ADMIN_USER_BY_ID,
                 ResponseSpecs.requestReturnsOK()
-        ).deleteWithPathParam(userId);  // ← Изменено с delete() на deleteWithPathParam()
+        ).deleteWithPathParam(userId);  
     }
 
     public static void deleteUserAndExpectNotFound(long userId) {
@@ -109,7 +108,7 @@ public class AdminSteps {
                 RequestSpecs.adminSpec(),
                 Endpoint.ADMIN_USER_BY_ID,
                 ResponseSpecs.requestReturnsNotFound()
-        ).deleteWithPathParam(userId);  // ← Тоже исправлено
+        ).deleteWithPathParam(userId);  
     }
 
     public static void deleteUserAndExpectForbidden(String token, long userId) {
@@ -117,7 +116,7 @@ public class AdminSteps {
                 RequestSpecs.authWithToken(token),
                 Endpoint.ADMIN_USER_BY_ID,
                 ResponseSpecs.requestReturnsForbidden()
-        ).deleteWithPathParam(userId);  // ← Тоже исправлено
+        ).deleteWithPathParam(userId);  
     }
 
     public static void createUserAndExpectBadRequest(CreateUserRequest request) {
@@ -180,14 +179,14 @@ public class AdminSteps {
     }
 
     public static List<CreateUserResponse> getAllUsers() {
-        return given()
+        String body = given()
                 .spec(RequestSpecs.adminSpec())
                 .when()
                 .get(Endpoint.ADMIN_USERS)
                 .then()
                 .spec(ResponseSpecs.requestReturnsOK())
                 .extract()
-                .jsonPath()
-                .getList("", CreateUserResponse.class);
+                .asString();
+        return common.utils.JsonUtils.readList(body, CreateUserResponse.class);
     }
 }

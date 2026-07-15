@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
+import common.utils.JsonUtils;
 import java.util.List;
 import java.util.Locale;
 
@@ -30,15 +31,15 @@ public class UserSteps {
     }
 
     public List<CreateAccountResponse> getAllAccounts() {
-        return given()
+        String body = given()
                 .spec(RequestSpecs.authAsUser(username, password))
                 .when()
                 .get(Endpoint.CUSTOMER_ACCOUNTS)
                 .then()
                 .spec(ResponseSpecs.requestReturnsOK())
                 .extract()
-                .jsonPath()
-                .getList("", CreateAccountResponse.class);
+                .asString();
+        return JsonUtils.readList(body, CreateAccountResponse.class);
     }
 
     public static String loginAndGetToken(String username, String password) {
@@ -86,15 +87,15 @@ public class UserSteps {
     }
 
     public static List<AccountDTO> getAccounts(String token) {
-        return given()
+        String body = given()
                 .spec(RequestSpecs.authWithToken(token))
                 .when()
                 .get(Endpoint.CUSTOMER_ACCOUNTS)
                 .then()
                 .spec(ResponseSpecs.requestReturnsOK())
                 .extract()
-                .jsonPath()
-                .getList("", AccountDTO.class);
+                .asString();
+        return JsonUtils.readList(body, AccountDTO.class);
     }
 
     @Deprecated
@@ -119,7 +120,6 @@ public class UserSteps {
                 .as(ProfileResponse.class);
     }
 
-    // ==================== ИСПРАВЛЕННЫЙ МЕТОД DEPOSIT С ЛОГИРОВАНИЕМ ====================
     public static void deposit(String token, int accountId, double amount) {
         String requestBody = String.format(Locale.US, "{\"id\": %d, \"balance\": %.2f}", accountId, amount);
 

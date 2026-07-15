@@ -51,7 +51,6 @@ public class TestDataBuilder {
         Long id = (long) accountId;
         createdAccounts.add(id);
 
-        // Дождемся, пока аккаунт появится в БД
         DataBaseSteps.waitForAccountInDb(id, 5000);
 
         return id;
@@ -61,14 +60,13 @@ public class TestDataBuilder {
         Long accountId = createAccount(token);
         UserSteps.deposit(token, accountId.intValue(), amount);
 
-        // Дождемся обновления баланса в БД
         DataBaseSteps.waitForBalanceUpdate(accountId, amount, 5000);
 
         return accountId;
     }
 
     public TestDataBuilder createTwoUsersWithAccounts() {
-        return this; // Chain methods for complex setup
+        return this; 
     }
 
     public List<Long> getCreatedUsers() {

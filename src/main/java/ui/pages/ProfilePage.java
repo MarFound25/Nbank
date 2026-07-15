@@ -2,6 +2,7 @@ package ui.pages;
 
 import com.codeborne.selenide.Condition;
 import com.codeborne.selenide.SelenideElement;
+import common.helpers.StepLogger;
 import lombok.Getter;
 
 import static com.codeborne.selenide.Selenide.$;
@@ -26,21 +27,32 @@ public class ProfilePage extends BasePage<ProfilePage> {
     }
 
     public ProfilePage enterNewName(String newName) {
-        nameInput.shouldBe(Condition.visible);
-        nameInput.click();
-        nameInput.clear();
-        nameInput.setValue(newName);
-        return this;
+        return StepLogger.log("Enter new profile name: '" + newName + "'", () -> {
+            nameInput.shouldBe(Condition.visible);
+            nameInput.click();
+            nameInput.sendKeys(org.openqa.selenium.Keys.chord(org.openqa.selenium.Keys.CONTROL, "a"));
+            nameInput.sendKeys(org.openqa.selenium.Keys.DELETE);
+            if (newName != null && !newName.isEmpty()) {
+                nameInput.setValue(newName);
+            }
+            return this;
+        });
     }
 
     public void clickSave() {
-        saveButton.click();
+        StepLogger.log("Click Save on Profile page", () -> {
+            saveButton.click();
+            return null;
+        });
     }
 
     public void changeName(String newName, String expectedAlertMessage) {
-        openEditProfile();
-        enterNewName(newName);
-        clickSave();
-        checkAlertMessageAndAccept(expectedAlertMessage);
+        StepLogger.log("Change profile name to '" + newName + "'", () -> {
+            openEditProfile();
+            enterNewName(newName);
+            clickSave();
+            checkAlertMessageAndAccept(expectedAlertMessage);
+            return null;
+        });
     }
 }

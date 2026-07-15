@@ -2,6 +2,7 @@ package ui.pages;
 
 import com.codeborne.selenide.Selectors;
 import com.codeborne.selenide.SelenideElement;
+import common.helpers.StepLogger;
 import lombok.Getter;
 
 import static com.codeborne.selenide.Selenide.$;
@@ -19,26 +20,35 @@ public class DepositPage extends BasePage<DepositPage> {
     }
 
     public DepositPage selectAccount(int index) {
-        accountSelector.click();
-        accountSelector.selectOption(index);
-        return this;
+        return StepLogger.log("Select deposit account index " + index, () -> {
+            accountSelector.click();
+            accountSelector.selectOption(index);
+            return this;
+        });
     }
 
     public DepositPage enterAmount(double amount) {
-        amountInput.setValue(String.valueOf(amount));
-        return this;
+        return StepLogger.log("Enter deposit amount " + amount, () -> {
+            amountInput.setValue(String.valueOf(amount));
+            return this;
+        });
     }
 
     public void clickDeposit() {
-        depositButton.click();
+        StepLogger.log("Click Deposit button", () -> {
+            depositButton.click();
+            return null;
+        });
     }
 
-    public DepositPage makeDeposit(double amount, boolean selectAccount, int accountIndex) {
-        if (selectAccount) {
-            selectAccount(accountIndex);
-        }
-        enterAmount(amount);
-        clickDeposit();
-        return this;
+    public DepositPage makeDeposit(double amount, boolean shouldSelectAccount, int accountIndex) {
+        return StepLogger.log("Make deposit amount=" + amount, () -> {
+            if (shouldSelectAccount) {
+                selectAccount(accountIndex);
+            }
+            enterAmount(amount);
+            clickDeposit();
+            return this;
+        });
     }
 }

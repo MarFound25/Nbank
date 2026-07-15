@@ -23,20 +23,14 @@ public class Config {
         }
     }
 
-    // Главный метод для получения свойств с приоритетом:
-    // 1. Системные свойства (-D)
-    // 2. Переменные окружения
-    // 3. config.properties
-    // 4. Дефолтные значения
     public static String getPropertyWithPriority(String key) {
-        // 1. Пробуем системные свойства
+        
         String systemValue = System.getProperty(key);
         if (systemValue != null && !systemValue.isEmpty()) {
             System.out.println("🔧 Using system property: " + key + "=" + systemValue);
             return systemValue;
         }
 
-        // 2. Пробуем переменные окружения
         String envKey = key.toUpperCase().replace('.', '_');
         String envValue = System.getenv(envKey);
         if (envValue != null && !envValue.isEmpty()) {
@@ -44,14 +38,12 @@ public class Config {
             return envValue;
         }
 
-        // 3. Пробуем config.properties
         String propValue = INSTANCE.properties.getProperty(key);
         if (propValue != null && !propValue.isEmpty()) {
             System.out.println("📁 Using config.properties: " + key + "=" + propValue);
             return propValue;
         }
 
-        // 4. Дефолтные значения (из статических полей или жестко заданные)
         return getDefaultValue(key);
     }
 
@@ -74,7 +66,6 @@ public class Config {
         }
     }
 
-    // Все методы должны использовать getPropertyWithPriority
     public static String getJdbcUrl() {
         return getPropertyWithPriority("db.url");
     }
@@ -99,7 +90,6 @@ public class Config {
         return getPropertyWithPriority("api.base.url");
     }
 
-    // Старые методы для обратной совместимости
     public static String getJdbcUrlFlexible() {
         return getJdbcUrl();
     }
@@ -124,7 +114,6 @@ public class Config {
         return getBaseUrl();
     }
 
-    // Для обратной совместимости с существующим кодом
     public static String getProperty(String key) {
         return getPropertyWithPriority(key);
     }
@@ -134,7 +123,6 @@ public class Config {
         return value != null ? value : defaultValue;
     }
 
-    // Другие существующие методы
     public static String getAdminBasicAuth() {
         String username = getAdminUsername();
         String password = getAdminPassword();

@@ -52,8 +52,6 @@ public abstract class BaseTest {
         }
     }
 
-    // ==================== TRACKING METHODS ====================
-
     protected void trackUser(Long userId) {
         if (userId != null) {
             createdUsers.add(userId);
@@ -71,8 +69,6 @@ public abstract class BaseTest {
     protected void addCleanupTask(Runnable task) {
         cleanupTasks.add(task);
     }
-
-    // ==================== TEST DATA CREATION ====================
 
     protected UserWithToken createTrackedUser() {
         UserWithToken user = dataBuilder.createUserWithToken();
@@ -102,8 +98,6 @@ public abstract class BaseTest {
         return accountId;
     }
 
-    // ==================== DATABASE HELPERS ====================
-
     protected double getAccountBalance(Long accountId) {
         AccountDao account = DataBaseSteps.getAccountById(accountId);
         return account != null ? account.getBalance() : 0.0;
@@ -121,8 +115,6 @@ public abstract class BaseTest {
         return DataBaseSteps.userExistsInDb(username);
     }
 
-    // ==================== WAIT HELPERS ====================
-
     protected void waitForAsyncCompletion() {
         try {
             Thread.sleep(DEFAULT_WAIT_MS);
@@ -136,7 +128,6 @@ public abstract class BaseTest {
         waitForAsyncCompletion();
     }
 
-    // ИСПРАВЛЕНО: Condition → WaitCondition
     protected void waitForCondition(WaitCondition condition, long timeoutMs) {
         long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() - startTime < timeoutMs) {
@@ -153,7 +144,6 @@ public abstract class BaseTest {
         throw new AssertionError("Condition not met within " + timeoutMs + "ms");
     }
 
-    // ИСПРАВЛЕНО: Condition → WaitCondition
     @FunctionalInterface
     protected interface WaitCondition {
         boolean isMet();

@@ -3,6 +3,7 @@ package ui.pages;
 import com.codeborne.selenide.Condition;
 import com.codeborne.selenide.Selectors;
 import com.codeborne.selenide.SelenideElement;
+import common.helpers.StepLogger;
 import lombok.Getter;
 
 import static com.codeborne.selenide.CollectionCondition.sizeGreaterThan;
@@ -25,65 +26,81 @@ public class TransferPage extends BasePage<TransferPage> {
     }
 
     public TransferPage selectFromAccount(int index) {
-        accountSelector.shouldBe(Condition.visible);
-        accountSelector.click();
-        $$("select.account-selector option").shouldHave(sizeGreaterThan(1));
-        accountSelector.selectOption(index);
-        return this;
+        return StepLogger.log("Select transfer from-account index " + index, () -> {
+            accountSelector.shouldBe(Condition.visible);
+            accountSelector.click();
+            $$("select.account-selector option").shouldHave(sizeGreaterThan(1));
+            accountSelector.selectOption(index);
+            return this;
+        });
     }
 
     public TransferPage enterRecipientName(String name) {
-        recipientNameInput.shouldBe(Condition.visible);
-        recipientNameInput.click();
-        recipientNameInput.clear();
-        recipientNameInput.setValue(name);
-        return this;
+        return StepLogger.log("Enter recipient name " + name, () -> {
+            recipientNameInput.shouldBe(Condition.visible);
+            recipientNameInput.click();
+            recipientNameInput.clear();
+            recipientNameInput.setValue(name);
+            return this;
+        });
     }
 
     public TransferPage enterRecipientAccount(String accountNumber) {
-        recipientAccountInput.shouldBe(Condition.visible);
-        recipientAccountInput.click();
-        recipientAccountInput.clear();
-        recipientAccountInput.setValue(accountNumber);
-        return this;
+        return StepLogger.log("Enter recipient account " + accountNumber, () -> {
+            recipientAccountInput.shouldBe(Condition.visible);
+            recipientAccountInput.click();
+            recipientAccountInput.clear();
+            recipientAccountInput.setValue(accountNumber);
+            return this;
+        });
     }
 
     public TransferPage enterAmount(double amount) {
-        amountInput.shouldBe(Condition.visible);
-        amountInput.click();
-        amountInput.clear();
-        amountInput.setValue(String.valueOf(amount));
-        return this;
+        return StepLogger.log("Enter transfer amount " + amount, () -> {
+            amountInput.shouldBe(Condition.visible);
+            amountInput.click();
+            amountInput.clear();
+            amountInput.setValue(String.valueOf(amount));
+            return this;
+        });
     }
 
     public TransferPage confirm() {
-        confirmButton.click();
-        return this;
+        return StepLogger.log("Confirm transfer details", () -> {
+            confirmButton.click();
+            return this;
+        });
     }
 
     public TransferPage send() {
-        sendButton.click();
-        return this;
+        return StepLogger.log("Send transfer", () -> {
+            sendButton.click();
+            return this;
+        });
     }
 
     public TransferPage makeTransfer(int fromAccountIndex, String toAccount, double amount) {
-        selectFromAccount(fromAccountIndex);
-        enterRecipientName("Test User");
-        enterRecipientAccount(toAccount);
-        enterAmount(amount);
-        confirm();
-        send();
-        return this;
+        return StepLogger.log("Make transfer to " + toAccount + " amount=" + amount, () -> {
+            selectFromAccount(fromAccountIndex);
+            enterRecipientName("Test User");
+            enterRecipientAccount(toAccount);
+            enterAmount(amount);
+            confirm();
+            send();
+            return this;
+        });
     }
 
     public TransferPage makeTransferByAccountNumber(String fromAccountNumber, String toAccountNumber, double amount) {
-        selectFromAccountByNumber(fromAccountNumber);
-        enterRecipientName(TestDataConstants.DEFAULT_USER_NAME);
-        enterRecipientAccount(toAccountNumber);
-        enterAmount(amount);
-        confirm();
-        send();
-        return this;
+        return StepLogger.log("Make transfer " + fromAccountNumber + " -> " + toAccountNumber, () -> {
+            selectFromAccountByNumber(fromAccountNumber);
+            enterRecipientName(TestDataConstants.DEFAULT_USER_NAME);
+            enterRecipientAccount(toAccountNumber);
+            enterAmount(amount);
+            confirm();
+            send();
+            return this;
+        });
     }
 
     private void selectFromAccountByNumber(String accountNumber) {

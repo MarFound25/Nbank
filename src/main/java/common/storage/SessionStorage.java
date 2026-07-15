@@ -20,11 +20,6 @@ public class SessionStorage {
         }
     }
 
-    /**
-     * Возвращаем объект CreateUserRequest по его порядковому номеру в списке созданных пользователей.
-     * @param number Порядковый номер, начиная с 1 (а не с 0).
-     * @return Объект CreateUserRequest, соответствующий указанному порядковому номеру.
-     */
     public static CreateUserRequest getUser(int number) {
         return new ArrayList<>(INSTANCE.get().userStepsMap.keySet()).get(number-1);
     }

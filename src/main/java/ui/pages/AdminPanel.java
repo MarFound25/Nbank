@@ -5,6 +5,7 @@ import com.codeborne.selenide.ElementsCollection;
 import com.codeborne.selenide.Selectors;
 import com.codeborne.selenide.Selenide;
 import com.codeborne.selenide.SelenideElement;
+import common.helpers.StepLogger;
 import lombok.Getter;
 
 import static com.codeborne.selenide.Selenide.$;
@@ -23,29 +24,43 @@ public class AdminPanel extends BasePage<AdminPanel> {
     }
 
     public AdminPanel createUser(String username, String password) {
-        usernameInput.shouldBe(Condition.visible).sendKeys(username);
-        passwordInput.shouldBe(Condition.visible).sendKeys(password);
-        addUserButton.shouldBe(Condition.visible).click();
-        return this;
+        return StepLogger.log("Create user " + username + " via Admin Panel", () -> {
+            adminPanelText.shouldBe(Condition.visible);
+            if (!usernameInput.is(Condition.visible)) {
+                addUserButton.shouldBe(Condition.visible).click();
+            }
+            usernameInput.shouldBe(Condition.visible).clear();
+            usernameInput.sendKeys(username);
+            passwordInput.shouldBe(Condition.visible).clear();
+            passwordInput.sendKeys(password);
+            addUserButton.shouldBe(Condition.visible).click();
+            return this;
+        });
     }
 
     public AdminPanel createUserAndAcceptAlert(String username, String password, String expectedMessage) {
-        createUser(username, password);
-        checkAlertMessageAndAccept(expectedMessage);
-        return this;
+        return StepLogger.log("Create user " + username + " and accept alert", () -> {
+            createUser(username, password);
+            checkAlertMessageAndAccept(expectedMessage);
+            return this;
+        });
     }
 
     public ElementsCollection getAllUsers() {
-        return $(Selectors.byText("All Users")).parent().findAll("li");
+        return StepLogger.log("Get all users from Admin Panel", () ->
+                $(Selectors.byText("All Users")).parent().findAll("li"));
     }
 
     public SelenideElement findUser(String username) {
-        return getAllUsers().findBy(Condition.exactText(username + "\nUSER"));
+        return StepLogger.log("Find user " + username + " on Admin Panel", () ->
+                getAllUsers().findBy(Condition.exactText(username + "\nUSER")));
     }
 
     public AdminPanel refreshAndWaitForUser(String username) {
-        Selenide.refresh();
-        adminPanelText.shouldBe(Condition.visible);
-        return this;
+        return StepLogger.log("Refresh Admin Panel and wait for user " + username, () -> {
+            Selenide.refresh();
+            adminPanelText.shouldBe(Condition.visible);
+            return this;
+        });
     }
 }
