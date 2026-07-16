@@ -1,1 +1,0 @@
-D:\AQA homework\first_programm\Nbank\infra\docker_compose\init-scripts\01-schema.sql

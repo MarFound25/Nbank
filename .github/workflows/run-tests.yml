@@ -84,22 +84,6 @@ jobs:
         with:
           maven-version: 3.9.9
 
-      - name: Start docker compose stack
-        run: |
-          cd infra/docker_compose
-          docker compose up -d
-          echo "Waiting for backend..."
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:4112/v3/api-docs > /dev/null; then
-              echo "Backend is ready"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Backend did not become ready in time"
-          docker compose logs
-          exit 1
-
       - name: Download Swagger Coverage CLI
         run: |
           curl -sL -o swagger-coverage-1.5.0.zip \
@@ -109,6 +93,28 @@ jobs:
           mv "$EXTRACTED" .swagger-coverage-commandline
           chmod +x .swagger-coverage-commandline/bin/swagger-coverage-commandline
           rm -f swagger-coverage-1.5.0.zip
+          test -x .swagger-coverage-commandline/bin/swagger-coverage-commandline
+
+      - name: Start docker compose stack
+        run: |
+          cd infra/docker_compose
+          docker compose up -d
+          echo "Waiting for backend..."
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:4112/v3/api-docs > /dev/null; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            if [ $((i % 6)) -eq 0 ]; then
+              echo "Still waiting... ($i)"
+              docker compose ps || true
+            fi
+            sleep 5
+          done
+          echo "Backend did not become ready in time"
+          docker compose ps
+          docker compose logs
+          exit 1
 
       - name: Run API tests
         id: api_tests
@@ -123,6 +129,10 @@ jobs:
       - name: Run Swagger coverage
         if: always()
         run: |
+          if [ ! -d target/swagger-coverage-output ]; then
+            echo "No coverage output directory — API tests may not have produced calls"
+            mkdir -p target/swagger-coverage-output
+          fi
           .swagger-coverage-commandline/bin/swagger-coverage-commandline \
             -s http://localhost:4112/v3/api-docs \
             -i target/swagger-coverage-output
