@@ -47,10 +47,10 @@ END;
 $$ language 'plpgsql';
 
 CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON customers
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TRIGGER update_accounts_updated_at BEFORE UPDATE ON accounts
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 -- Note: Data insertion is handled by Flyway migrations to avoid conflicts
 -- This script only creates the table structure
