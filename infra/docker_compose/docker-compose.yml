@@ -1,6 +1,7 @@
 services:
   backend:
-    image: nobugsme/nbank:with_database
+    # Homework: swagger-enabled image (validation/fraud variants both expose /v3/api-docs)
+    image: nobugsme/nbank:with_fraud_check_with_swagger_errors
     ports:
       - "4112:4111"
     environment:

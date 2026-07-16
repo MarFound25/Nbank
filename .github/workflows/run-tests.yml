@@ -1,6 +1,7 @@
 name: Run tests and publish reports
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'src/**'
@@ -128,6 +129,8 @@ jobs:
 
       - name: Run Swagger coverage
         if: always()
+        id: swagger_coverage
+        continue-on-error: true
         run: |
           if [ ! -d target/swagger-coverage-output ]; then
             echo "No coverage output directory — API tests may not have produced calls"
@@ -136,6 +139,7 @@ jobs:
           .swagger-coverage-commandline/bin/swagger-coverage-commandline \
             -s http://localhost:4112/v3/api-docs \
             -i target/swagger-coverage-output
+          ls -la swagger-coverage-report.html swagger-coverage-results.json || true
 
       - name: Load test report history
         uses: actions/checkout@v4
@@ -145,7 +149,7 @@ jobs:
           ref: gh-pages
           path: gh-pages
 
-      - name: Build test report
+      - name: Build Allure report
         uses: simple-elf/allure-report-action@master
         if: always()
         with:
@@ -154,29 +158,109 @@ jobs:
           allure_history: allure-history
           keep_reports: 20
 
-      - name: Build Swagger coverage report
+      # Required Pages layout:
+      #   test-report/<run>/allure-report
+      #   test-report/<run>/swagger-coverage
+      - name: Package GitHub Pages site
         if: always()
         run: |
-          mkdir -p "allure-history/${{ github.run_number }}"
+          set -euo pipefail
+          RUN="${{ github.run_number }}"
+          sudo chown -R "$(id -u):$(id -g)" allure-history allure-report 2>/dev/null || true
+
+          mkdir -p site
+          if [ -d gh-pages/test-report ]; then
+            cp -a gh-pages/test-report site/
+          fi
+          if [ -d gh-pages/last-history ]; then
+            cp -a gh-pages/last-history site/
+          fi
+
+          mkdir -p "site/test-report/${RUN}/allure-report"
+          mkdir -p "site/test-report/${RUN}/swagger-coverage"
+
+          if [ -d "allure-history/${RUN}" ]; then
+            cp -a "allure-history/${RUN}/." "site/test-report/${RUN}/allure-report/"
+          elif [ -d allure-report ]; then
+            cp -a allure-report/. "site/test-report/${RUN}/allure-report/"
+          else
+            echo "WARN: Allure report directory not found"
+          fi
+
+          chmod +x scripts/generate-coverage-widget.sh scripts/check-api-coverage.sh
+          ./scripts/generate-coverage-widget.sh \
+            swagger-coverage-results.json \
+            "site/test-report/${RUN}/allure-report/widgets/coverage.json"
+
           if [ -f swagger-coverage-report.html ]; then
-            cp swagger-coverage-report.html "allure-history/${{ github.run_number }}/"
+            cp swagger-coverage-report.html "site/test-report/${RUN}/swagger-coverage/index.html"
+          else
+            echo "WARN: swagger-coverage-report.html not found"
+            echo '<html><body><h1>Swagger coverage report missing</h1></body></html>' \
+              > "site/test-report/${RUN}/swagger-coverage/index.html"
           fi
           if [ -f swagger-coverage-results.json ]; then
-            cp swagger-coverage-results.json "allure-history/${{ github.run_number }}/"
+            cp swagger-coverage-results.json "site/test-report/${RUN}/swagger-coverage/"
           fi
+
+          if [ -d allure-history/last-history ]; then
+            rm -rf site/last-history
+            cp -a allure-history/last-history site/
+          fi
+
+          # Keep last 20 pipeline report folders
+          if [ -d site/test-report ]; then
+            cd site/test-report
+            ls -1 | sort -n | head -n -20 | xargs -r rm -rf
+            cd "${GITHUB_WORKSPACE}"
+          fi
+
+          {
+            echo "<!DOCTYPE html>"
+            echo "<html><head><meta charset=\"utf-8\"><title>Nbank test reports</title></head><body>"
+            echo "<h1>Nbank test reports</h1>"
+            echo "<p>Latest run: <strong>#${RUN}</strong></p>"
+            echo "<ul>"
+            echo "<li><a href=\"test-report/${RUN}/allure-report/\">Allure Report (#${RUN})</a></li>"
+            echo "<li><a href=\"test-report/${RUN}/swagger-coverage/\">Swagger / API Coverage (#${RUN})</a></li>"
+            echo "</ul>"
+            echo "<h2>All runs</h2><ul>"
+            if [ -d site/test-report ]; then
+              for d in $(ls -1 site/test-report | sort -nr); do
+                echo "<li>#${d}: <a href=\"test-report/${d}/allure-report/\">allure</a> | <a href=\"test-report/${d}/swagger-coverage/\">swagger-coverage</a></li>"
+              done
+            fi
+            echo "</ul></body></html>"
+          } > site/index.html
+
+          touch site/.nojekyll
+          echo "Packaged site for run #${RUN}:"
+          find "site/test-report/${RUN}" -maxdepth 2 -type f | head -n 40
 
       - name: Publish test report
         uses: peaceiris/actions-gh-pages@v3
-        if: always() && (github.ref == 'refs/heads/run-tests-pipeline' || github.ref == 'refs/heads/master')
+        if: always() && (github.ref == 'refs/heads/run-tests-pipeline' || github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch')
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
-          publish_dir: allure-history
+          publish_dir: site
+
+      - name: Quality gate — API coverage ≥ 50%
+        id: coverage_gate
+        if: always()
+        run: |
+          ./scripts/check-api-coverage.sh \
+            "site/test-report/${{ github.run_number }}/allure-report/widgets/coverage.json" \
+            50
 
       - name: Clean up services
         if: always()
         run: cd infra/docker_compose && docker compose down
 
-      - name: Fail job if API tests failed
-        if: steps.api_tests.outcome == 'failure'
-        run: exit 1
+      - name: Fail job if tests or coverage gate failed
+        if: always() && (steps.api_tests.outcome == 'failure' || steps.coverage_gate.outcome == 'failure' || steps.swagger_coverage.outcome == 'failure')
+        run: |
+          echo "api_tests=${{ steps.api_tests.outcome }}"
+          echo "swagger_coverage=${{ steps.swagger_coverage.outcome }}"
+          echo "coverage_gate=${{ steps.coverage_gate.outcome }}"
+          exit 1
