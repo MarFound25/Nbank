@@ -7,8 +7,6 @@ import io.qameta.allure.Allure;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.filter.Filter;
 import io.restassured.filter.FilterContext;
-import io.restassured.filter.log.RequestLoggingFilter;
-import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.FilterableRequestSpecification;
@@ -73,9 +71,10 @@ public class RequestSpecs {
                 .setBaseUri(Config.getBaseUrl())
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
+                // Do not add ResponseLoggingFilter here: with Swagger/Allure filters it
+                // re-reads a closed body stream and flakes tests as "broken"
+                // (IOException: Attempted read on closed stream). Allure already attaches HTTP I/O.
                 .addFilters(List.of(
-                        new RequestLoggingFilter(),
-                        new ResponseLoggingFilter(),
                         SWAGGER_COVERAGE_FILTER,
                         ALLURE_SAFE_FILTER
                 ));
