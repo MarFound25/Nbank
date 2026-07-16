@@ -34,5 +34,11 @@ build/
 ### VS Code ###
 .vscode/
 
+### Swagger coverage CLI (downloaded locally / in CI) ###
+.swagger-coverage-commandline/
+swagger-coverage-*.zip
+swagger-coverage-report.html
+swagger-coverage-results.json
+
 ### Mac OS ###
 .DS_Store
