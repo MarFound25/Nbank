@@ -1,1 +1,0 @@
-GET http://localhost:4112/api/v1/customer/accounts

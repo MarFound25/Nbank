@@ -1,1 +1,0 @@
-PUT http://localhost:4112/api/v1/customer/profile
