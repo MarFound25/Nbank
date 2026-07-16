@@ -82,7 +82,7 @@ public class CreateUserTest extends BaseTest {
         }
 
         @Test
-        @Disabled("BACKEND-1234: StackOverflow из-за рекурсии в JSON ответе")
+        @Disabled("BACKEND-1234: GET /admin/users returns truncated circular JSON; newly created users are missing from the payload")
         @DisplayName("TC-005: Admin can get all users - includes newly created user")
         void adminCanGetAllUsersTest() {
             CreateUserRequest request = CreateUserRequest.builder()

@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import specs.RequestSpecs;
 import specs.ResponseSpecs;
 import common.utils.JsonUtils;
+import api.dao.AccountDao;
 import java.util.List;
 import java.util.Locale;
 
@@ -87,26 +88,21 @@ public class UserSteps {
     }
 
     public static List<AccountDTO> getAccounts(String token) {
-        String body = given()
+        io.restassured.response.Response response = given()
                 .spec(RequestSpecs.authWithToken(token))
                 .when()
-                .get(Endpoint.CUSTOMER_ACCOUNTS)
-                .then()
-                .spec(ResponseSpecs.requestReturnsOK())
-                .extract()
-                .asString();
-        return JsonUtils.readList(body, AccountDTO.class);
+                .get(Endpoint.CUSTOMER_ACCOUNTS);
+        response.then().statusCode(200);
+        return JsonUtils.readList(response.asString(), AccountDTO.class);
     }
 
     @Deprecated
     public static double getAccountBalance(String token, int accountId) {
-        List<AccountDTO> accounts = getAccounts(token);
-
-        return accounts.stream()
-                .filter(acc -> acc.getId() == accountId)
-                .findFirst()
-                .map(AccountDTO::getBalance)
-                .orElseThrow(() -> new RuntimeException("Account not found: " + accountId));
+        AccountDao account = DataBaseSteps.getAccountById((long) accountId);
+        if (account == null) {
+            throw new RuntimeException("Account not found: " + accountId);
+        }
+        return account.getBalance();
     }
 
     public static ProfileResponse getProfile(String token) {
@@ -136,13 +132,12 @@ public class UserSteps {
                 .when()
                 .post(Endpoint.ACCOUNTS_DEPOSIT);
 
-        System.out.println("Response status: " + response.statusCode());
-        System.out.println("Response body: " + response.asString());
+        int status = response.statusCode();
+        System.out.println("Response status: " + status);
         System.out.println("=== [DEPOSIT DEBUG END] ===");
 
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("Deposit failed. Status: " + response.statusCode() +
-                    ", Body: " + response.asString());
+        if (status != 200) {
+            throw new RuntimeException("Deposit failed. Status: " + status);
         }
     }
 

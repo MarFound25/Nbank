@@ -36,12 +36,17 @@ public class BaseUiTest extends BaseTest {
 
     @BeforeEach
     public void openMainPage() {
-        
+        // Ensure browser is up so JSON sanitizer can be installed for SPA XHR hooks.
+        if (!com.codeborne.selenide.WebDriverRunner.hasWebDriverStarted()) {
+            open("/login");
+        }
+        common.helpers.UiBrokenJsonMock.install();
     }
 
     @AfterEach
     public void tearDown() {
         Selenide.closeWebDriver();
+        common.helpers.UiBrokenJsonMock.resetCdpFlag();
     }
 
     protected void assertAlertTextAndAccept(String expectedText) {

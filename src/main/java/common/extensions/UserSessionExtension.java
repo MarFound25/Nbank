@@ -28,6 +28,7 @@ public class UserSessionExtension implements BeforeEachCallback {
                 Configuration.timeout = 10000;
                 Configuration.headless = false;
                 Selenide.open("/");
+                common.helpers.UiBrokenJsonMock.install();
             }
 
             int userCount = annotation.value();

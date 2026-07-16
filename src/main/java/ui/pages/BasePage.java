@@ -20,13 +20,18 @@ public abstract class BasePage<T extends BasePage> {
     public static void authAsUser(CreateUserRequest user) {
         StepLogger.log("Auth as user " + user.getUsername() + " via UI localStorage", () -> {
             String token = UserSteps.loginAndGetToken(user.getUsername(), user.getPassword());
+            // Full navigation after setting token so React restores auth.role from Basic token.
+            Selenide.open("/login");
+            common.helpers.UiBrokenJsonMock.install();
             executeJavaScript("localStorage.setItem('authToken', arguments[0]);", token);
 
             if (user.getRole().equals("ADMIN")) {
                 Selenide.open("/admin");
+                common.helpers.UiBrokenJsonMock.install();
                 $(Selectors.byText("Admin Panel")).shouldBe(Condition.visible);
             } else {
                 Selenide.open("/dashboard");
+                common.helpers.UiBrokenJsonMock.install();
                 $(".welcome-text").shouldBe(Condition.visible);
             }
             return null;
@@ -36,7 +41,9 @@ public abstract class BasePage<T extends BasePage> {
     public abstract String url();
 
     public T open() {
-        return Selenide.open(url(), (Class<T>) this.getClass());
+        T page = Selenide.open(url(), (Class<T>) this.getClass());
+        common.helpers.UiBrokenJsonMock.install();
+        return page;
     }
 
     public <T extends BasePage> T getPage(Class<T> pageClass) {

@@ -42,8 +42,8 @@ public class UserDashboard extends BasePage<UserDashboard> {
     public TransferPage openTransferPage() {
         return StepLogger.log("Open Transfer page from Dashboard", () -> {
             $(".welcome-text").shouldBe(Condition.visible);
-            $$(".custom-btn.action-btn").shouldHave(sizeGreaterThan(1));
-            $$(".custom-btn.action-btn").get(1).shouldBe(Condition.visible).click();
+            // Button label includes a leading emoji in the current UI build.
+            $(Selectors.withText("Make a Transfer")).shouldBe(Condition.visible).click();
             $("input[placeholder='Enter recipient account number']").shouldBe(Condition.visible);
             return new TransferPage();
         });

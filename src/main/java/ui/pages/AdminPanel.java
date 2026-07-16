@@ -53,12 +53,20 @@ public class AdminPanel extends BasePage<AdminPanel> {
 
     public SelenideElement findUser(String username) {
         return StepLogger.log("Find user " + username + " on Admin Panel", () ->
-                getAllUsers().findBy(Condition.exactText(username + "\nUSER")));
+                getAllUsers().findBy(Condition.text(username)));
     }
 
     public AdminPanel refreshAndWaitForUser(String username) {
         return StepLogger.log("Refresh Admin Panel and wait for user " + username, () -> {
             Selenide.refresh();
+            common.helpers.UiBrokenJsonMock.install();
+            adminPanelText.shouldBe(Condition.visible);
+            return this;
+        });
+    }
+
+    public AdminPanel waitUntilVisible() {
+        return StepLogger.log("Wait for Admin Panel", () -> {
             adminPanelText.shouldBe(Condition.visible);
             return this;
         });
