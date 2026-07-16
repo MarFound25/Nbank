@@ -1,12 +1,23 @@
-name: Build and push Docker image
+name: Run tests and publish reports
 
 on:
   push:
     paths:
       - 'src/**'
+      - 'pom.xml'
+      - '.github/workflows/run-tests.yml'
+      - 'infra/docker_compose/**'
+      - 'scripts/**'
   pull_request:
     paths:
       - 'src/**'
+      - 'pom.xml'
+      - '.github/workflows/run-tests.yml'
+      - 'infra/docker_compose/**'
+      - 'scripts/**'
+
+permissions:
+  contents: write
 
 jobs:
   build-and-push:
@@ -53,3 +64,109 @@ jobs:
 
       - name: Push Docker image
         run: docker push "${{ steps.meta.outputs.image }}"
+
+  api-tests-and-reports:
+    name: API tests, Allure, Swagger coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '22'
+          cache: maven
+
+      - name: Set up Maven
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: 3.9.9
+
+      - name: Start docker compose stack
+        run: |
+          cd infra/docker_compose
+          docker compose up -d
+          echo "Waiting for backend..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:4112/v3/api-docs > /dev/null; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Backend did not become ready in time"
+          docker compose logs
+          exit 1
+
+      - name: Download Swagger Coverage CLI
+        run: |
+          curl -sL -o swagger-coverage-1.5.0.zip \
+            https://github.com/viclovsky/swagger-coverage/releases/download/1.5.0/swagger-coverage-1.5.0.zip
+          unzip -q swagger-coverage-1.5.0.zip
+          EXTRACTED=$(find . -maxdepth 1 -type d -name 'swagger-coverage*' | head -n 1)
+          mv "$EXTRACTED" .swagger-coverage-commandline
+          chmod +x .swagger-coverage-commandline/bin/swagger-coverage-commandline
+          rm -f swagger-coverage-1.5.0.zip
+
+      - name: Run API tests
+        id: api_tests
+        continue-on-error: true
+        run: |
+          mvn -B -Papi clean test \
+            -Dapi.base.url=http://localhost:4112 \
+            -Ddb.url=jdbc:postgresql://localhost:5433/nbank \
+            -Ddb.username=postgres \
+            -Ddb.password=postgres
+
+      - name: Run Swagger coverage
+        if: always()
+        run: |
+          .swagger-coverage-commandline/bin/swagger-coverage-commandline \
+            -s http://localhost:4112/v3/api-docs \
+            -i target/swagger-coverage-output
+
+      - name: Load test report history
+        uses: actions/checkout@v4
+        if: always()
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Build test report
+        uses: simple-elf/allure-report-action@master
+        if: always()
+        with:
+          gh_pages: gh-pages
+          allure_results: target/allure-results
+          allure_history: allure-history
+          keep_reports: 20
+
+      - name: Build Swagger coverage report
+        if: always()
+        run: |
+          mkdir -p "allure-history/${{ github.run_number }}"
+          if [ -f swagger-coverage-report.html ]; then
+            cp swagger-coverage-report.html "allure-history/${{ github.run_number }}/"
+          fi
+          if [ -f swagger-coverage-results.json ]; then
+            cp swagger-coverage-results.json "allure-history/${{ github.run_number }}/"
+          fi
+
+      - name: Publish test report
+        uses: peaceiris/actions-gh-pages@v3
+        if: always() && (github.ref == 'refs/heads/run-tests-pipeline' || github.ref == 'refs/heads/master')
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+
+      - name: Clean up services
+        if: always()
+        run: cd infra/docker_compose && docker compose down
+
+      - name: Fail job if API tests failed
+        if: steps.api_tests.outcome == 'failure'
+        run: exit 1

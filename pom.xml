@@ -20,6 +20,7 @@
         <lombok.version>1.18.42</lombok.version>
         <jackson.version>2.19.0</jackson.version>
         <assertj.version>3.27.7</assertj.version>
+        <swagger-coverage.version>1.5.0</swagger-coverage.version>
     </properties>
 
     <dependencies>
@@ -123,6 +124,12 @@
             <groupId>com.github.tomakehurst</groupId>
             <artifactId>wiremock-jre8</artifactId>
             <version>2.35.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.viclovsky</groupId>
+            <artifactId>swagger-coverage-rest-assured</artifactId>
+            <version>${swagger-coverage.version}</version>
         </dependency>
     </dependencies>
 

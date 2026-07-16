@@ -1,10 +1,14 @@
 package specs;
 
+import com.github.viclovsky.swagger.coverage.FileSystemOutputWriter;
+import com.github.viclovsky.swagger.coverage.SwaggerCoverageV3RestAssured;
 import configs.Config;
 import io.qameta.allure.Allure;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.filter.Filter;
 import io.restassured.filter.FilterContext;
+import io.restassured.filter.log.RequestLoggingFilter;
+import io.restassured.filter.log.ResponseLoggingFilter;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.FilterableRequestSpecification;
@@ -14,6 +18,10 @@ import requests.steps.UserSteps;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
+import java.util.List;
+
+import static com.github.viclovsky.swagger.coverage.SwaggerCoverageConstants.OUTPUT_DIRECTORY;
 
 public class RequestSpecs {
 
@@ -52,12 +60,25 @@ public class RequestSpecs {
         }
     };
 
+    /**
+     * OpenAPI 3 coverage filter. Writes call snapshots under target/swagger-coverage-output.
+     * Paths in Endpoint.java must match Swagger (/api/v1/...), otherwise coverage stays empty.
+     */
+    private static final Filter SWAGGER_COVERAGE_FILTER = new SwaggerCoverageV3RestAssured(
+            new FileSystemOutputWriter(Paths.get("target/" + OUTPUT_DIRECTORY))
+    );
+
     private static RequestSpecBuilder baseBuilder() {
         return new RequestSpecBuilder()
                 .setBaseUri(Config.getBaseUrl())
                 .setContentType(ContentType.JSON)
                 .setAccept(ContentType.JSON)
-                .addFilter(ALLURE_SAFE_FILTER);
+                .addFilters(List.of(
+                        new RequestLoggingFilter(),
+                        new ResponseLoggingFilter(),
+                        SWAGGER_COVERAGE_FILTER,
+                        ALLURE_SAFE_FILTER
+                ));
     }
 
     public static RequestSpecification adminSpec() {
