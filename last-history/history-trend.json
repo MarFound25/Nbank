@@ -1,1 +1,1 @@
-[{"data":{"failed":0,"broken":0,"skipped":0,"passed":0,"unknown":0,"total":0}}]
+[{"buildOrder":10,"reportUrl":"https://MarFound25.github.io/Nbank/10","reportName":"Allure Report with history","data":{"failed":0,"broken":0,"skipped":3,"passed":78,"unknown":0,"total":81}},{"buildOrder":9,"reportUrl":"https://MarFound25.github.io/Nbank/9","reportName":"Allure Report with history","data":{"failed":0,"broken":1,"skipped":3,"passed":77,"unknown":0,"total":81}},{"data":{"failed":0,"broken":0,"skipped":0,"passed":0,"unknown":0,"total":0}}]
