@@ -1,0 +1,13 @@
+{
+  "percents": 72.73,
+  "covered": 8,
+  "uncovered": 3,
+  "total": 11,
+  "full": 2,
+  "partial": 6,
+  "empty": 3,
+  "conditions": {
+    "covered": 15,
+    "all": 29
+  }
+}
