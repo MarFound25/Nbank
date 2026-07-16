@@ -1,0 +1,1 @@
+DELETE http://localhost:4112/api/v1/admin/users/63
