@@ -67,7 +67,7 @@ public class TransferPage extends BasePage<TransferPage> {
 
     public TransferPage confirm() {
         return StepLogger.log("Confirm transfer details", () -> {
-            confirmButton.click();
+            $("#confirmCheck").shouldBe(Condition.exist).click();
             return this;
         });
     }
@@ -105,8 +105,7 @@ public class TransferPage extends BasePage<TransferPage> {
 
     private void selectFromAccountByNumber(String accountNumber) {
         accountSelector.shouldBe(Condition.visible);
-        accountSelector.click();
         $$("select.account-selector option").shouldHave(sizeGreaterThan(1));
-        $$("select.account-selector option").findBy(Condition.text(accountNumber)).click();
+        accountSelector.selectOptionContainingText(accountNumber);
     }
 }

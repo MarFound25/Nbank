@@ -87,8 +87,31 @@ public final class JsonUtils {
             }
             return users;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse users JSON: " + e.getMessage(), e);
+            return readUsersByRegex(json);
         }
+    }
+
+    private static List<CreateUserResponse> readUsersByRegex(String json) {
+        List<CreateUserResponse> users = new ArrayList<>();
+        Pattern pattern = Pattern.compile(
+                "\"id\"\\s*:\\s*(\\d+)\\s*,\\s*\"username\"\\s*:\\s*\"([^\"]*)\"\\s*,\\s*\"password\"\\s*:\\s*\"([^\"]*)\"\\s*,\\s*\"name\"\\s*:\\s*\"([^\"]*)\"\\s*,\\s*\"role\"\\s*:\\s*\"([^\"]*)\"");
+        Matcher matcher = pattern.matcher(json);
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        while (matcher.find()) {
+            long id = Long.parseLong(matcher.group(1));
+            if (!seen.add(id)) {
+                continue;
+            }
+            users.add(CreateUserResponse.builder()
+                    .id(id)
+                    .username(matcher.group(2))
+                    .password(matcher.group(3))
+                    .name(matcher.group(4))
+                    .role(matcher.group(5))
+                    .accounts(Collections.emptyList())
+                    .build());
+        }
+        return users;
     }
 
     private static AccountDTO readAccountObject(JsonParser parser) throws Exception {
@@ -117,10 +140,38 @@ public final class JsonUtils {
                 case "password" -> user.setPassword(parser.getValueAsString());
                 case "name" -> user.setName(parser.getValueAsString());
                 case "role" -> user.setRole(parser.getValueAsString());
+                case "accounts" -> user.setAccounts(readAccountsArray(parser));
                 default -> parser.skipChildren();
             }
         }
         return user;
+    }
+
+    private static List<models.AccountResponce> readAccountsArray(JsonParser parser) throws Exception {
+        List<models.AccountResponce> accounts = new ArrayList<>();
+        if (parser.currentToken() != JsonToken.START_ARRAY) {
+            parser.skipChildren();
+            return accounts;
+        }
+        while (parser.nextToken() != JsonToken.END_ARRAY) {
+            if (parser.currentToken() != JsonToken.START_OBJECT) {
+                parser.skipChildren();
+                continue;
+            }
+            models.AccountResponce account = new models.AccountResponce();
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                String field = parser.currentName();
+                parser.nextToken();
+                switch (field) {
+                    case "id" -> account.setId((int) parser.getLongValue());
+                    case "accountNumber" -> account.setAccountNumber(parser.getValueAsString());
+                    case "balance" -> account.setBalance(parser.getDoubleValue());
+                    default -> parser.skipChildren();
+                }
+            }
+            accounts.add(account);
+        }
+        return accounts;
     }
 
     public static <T> List<T> readList(String json, Class<T> itemType) {
