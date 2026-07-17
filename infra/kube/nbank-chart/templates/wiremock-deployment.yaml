@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.wiremock.name }}
+  labels:
+    app: {{ .Values.wiremock.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.wiremock.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.wiremock.name }}
+    spec:
+      containers:
+        - name: {{ .Values.wiremock.name }}
+          image: {{ .Values.wiremock.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.wiremock.containerPort }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.wiremock.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
