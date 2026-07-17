@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nbank-business-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  nbank-business.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "User operations",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "targets": [
+            {"expr": "sum(rate(user_created_total[5m]))", "legendFormat": "Users created"},
+            {"expr": "sum(rate(user_login_total[5m]))", "legendFormat": "User logins"},
+            {"expr": "sum(rate(admin_user_deleted_total[5m]))", "legendFormat": "Users deleted"}
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Transfers",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "targets": [
+            {"expr": "sum(rate(transfer_started_total[5m]))", "legendFormat": "Started"},
+            {"expr": "sum(rate(transfer_success_total[5m]))", "legendFormat": "Successful"},
+            {"expr": "sum(rate(transfer_failed_total[5m]))", "legendFormat": "Failed"}
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Accounts created",
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 8},
+          "targets": [
+            {"expr": "sum(account_created_total)", "legendFormat": "Accounts"}
+          ]
+        },
+        {
+          "type": "stat",
+          "title": "Profiles fetched",
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 8},
+          "targets": [
+            {"expr": "sum(customer_profile_fetched_total)", "legendFormat": "Profiles"}
+          ]
+        }
+      ],
+      "refresh": "15s",
+      "schemaVersion": 42,
+      "tags": ["nbank", "business"],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "title": "NBank Business Metrics",
+      "uid": "nbank-business",
+      "version": 1
+    }
