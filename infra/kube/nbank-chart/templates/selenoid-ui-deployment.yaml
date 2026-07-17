@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.selenoidUi.name }}
+  labels:
+    app: {{ .Values.selenoidUi.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.selenoidUi.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.selenoidUi.name }}
+    spec:
+      containers:
+        - name: {{ .Values.selenoidUi.name }}
+          image: {{ .Values.selenoidUi.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - "--selenoid-uri"
+            - "http://{{ .Values.selenoid.name }}:{{ .Values.selenoid.servicePort }}"
+          ports:
+            - containerPort: {{ .Values.selenoidUi.containerPort }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.selenoidUi.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -1,0 +1,53 @@
+imagePullPolicy: IfNotPresent
+replicaCount: 1
+
+backend:
+  name: backend
+  image: nobugsme/nbank:with_database
+  containerPort: 4111
+  servicePort: 4111
+  serviceType: NodePort
+  nodePort: 30111
+  replicas: 1
+
+frontend:
+  name: frontend
+  image: nobugsme/nbank-ui:with_nginx
+  containerPort: 80
+  servicePort: 80
+  serviceType: NodePort
+  nodePort: 30080
+  replicas: 1
+
+postgres:
+  name: postgres
+  image: postgres:15-alpine
+  containerPort: 5432
+  servicePort: 5432
+  serviceType: ClusterIP
+  db: nbank
+  user: postgres
+  password: postgres
+
+wiremock:
+  name: wiremock
+  image: wiremock/wiremock:latest
+  containerPort: 8080
+  servicePort: 8080
+  serviceType: ClusterIP
+
+selenoid:
+  name: selenoid
+  image: aerokube/selenoid:latest
+  containerPort: 4444
+  servicePort: 4444
+  serviceType: NodePort
+  nodePort: 30444
+
+selenoidUi:
+  name: selenoid-ui
+  image: aerokube/selenoid-ui:latest
+  containerPort: 8080
+  servicePort: 8080
+  serviceType: NodePort
+  nodePort: 30808

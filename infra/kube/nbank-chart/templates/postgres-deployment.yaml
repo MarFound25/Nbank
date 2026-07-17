@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.postgres.name }}
+  labels:
+    app: {{ .Values.postgres.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.postgres.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.postgres.name }}
+    spec:
+      containers:
+        - name: {{ .Values.postgres.name }}
+          image: {{ .Values.postgres.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.postgres.containerPort }}
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.db | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.password | quote }}
+          volumeMounts:
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ .Values.postgres.user }}", "-d", "{{ .Values.postgres.db }}"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: init-sql
+          configMap:
+            name: postgres-init
