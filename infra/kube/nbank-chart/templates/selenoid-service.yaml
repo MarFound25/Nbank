@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.selenoid.name }}
+  labels:
+    app: {{ .Values.selenoid.name }}
+spec:
+  selector:
+    app: {{ .Values.selenoid.name }}
+  type: {{ .Values.selenoid.serviceType }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ .Values.selenoid.servicePort }}
+      targetPort: {{ .Values.selenoid.containerPort }}
+      {{- if and (eq .Values.selenoid.serviceType "NodePort") .Values.selenoid.nodePort }}
+      nodePort: {{ .Values.selenoid.nodePort }}
+      {{- end }}
