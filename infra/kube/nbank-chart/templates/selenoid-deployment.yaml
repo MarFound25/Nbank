@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.selenoid.name }}
+  labels:
+    app: {{ .Values.selenoid.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.selenoid.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.selenoid.name }}
+    spec:
+      containers:
+        - name: {{ .Values.selenoid.name }}
+          image: {{ .Values.selenoid.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - "-conf"
+            - "/etc/selenoid/browsers.json"
+            - "-video-output-dir"
+            - "/opt/selenoid/video"
+            - "-container-network"
+            - "bridge"
+          ports:
+            - containerPort: {{ .Values.selenoid.containerPort }}
+          volumeMounts:
+            - name: selenoid-config
+              mountPath: /etc/selenoid
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.selenoid.containerPort }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: selenoid-config
+          configMap:
+            name: selenoid-config
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
